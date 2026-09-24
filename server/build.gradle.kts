@@ -65,6 +65,9 @@ dependencies {
 
 tasks.named<Test>("test") {
     useJUnitPlatform()
+
+    // Specific state file for tests.
+    environment("DSP_STATE", layout.buildDirectory.file("test-state/portal-state.json").get().asFile.absolutePath)
 }
 
 // ---- SPA build ----------------------------------------------------------
