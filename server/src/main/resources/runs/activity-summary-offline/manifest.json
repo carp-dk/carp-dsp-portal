@@ -1,0 +1,85 @@
+{
+  "workflowId": "wf-activity-summary-offline",
+  "outputs": [
+    {
+      "stepId": "generate",
+      "outputId": "hr-steps",
+      "path": "steps/01_generate_synthetic_hr_and_step_counts/outputs/hr-steps.csv",
+      "sizeBytes": 45610,
+      "sha256": "5c3c0f48e67c0c413188a18e58a6f9cdbe5682bfe4ee71c0a957fa7d1887f155",
+      "contentType": "text/csv"
+    },
+    {
+      "stepId": "split-steps",
+      "outputId": "selected",
+      "path": "steps/02_select_and_rename_columns/outputs/selected.csv",
+      "sizeBytes": 38836,
+      "sha256": "d4559d344c4119c8a684b43ff06b7e3248ddfe86fa2dc527eaa63f694e670142",
+      "contentType": "text/csv"
+    },
+    {
+      "stepId": "split-hr",
+      "outputId": "selected",
+      "path": "steps/03_select_and_rename_columns/outputs/selected.csv",
+      "sizeBytes": 40400,
+      "sha256": "5bedce3244d3ed2602138e3dc349787503f58d45f3f3891bc5f32847af198d70",
+      "contentType": "text/csv"
+    },
+    {
+      "stepId": "clean-steps",
+      "outputId": "clean-steps",
+      "path": "steps/04_regularise_step_counts/outputs/clean-steps.csv",
+      "sizeBytes": 38836,
+      "sha256": "d4559d344c4119c8a684b43ff06b7e3248ddfe86fa2dc527eaa63f694e670142",
+      "contentType": "text/csv"
+    },
+    {
+      "stepId": "clean-hr",
+      "outputId": "clean-heart-rate",
+      "path": "steps/05_clean_heart_rate_samples/outputs/clean-heart-rate.csv",
+      "sizeBytes": 40400,
+      "sha256": "5bedce3244d3ed2602138e3dc349787503f58d45f3f3891bc5f32847af198d70",
+      "contentType": "text/csv"
+    },
+    {
+      "stepId": "daily-steps",
+      "outputId": "daily-steps",
+      "path": "steps/06_daily_step_count_features/outputs/daily-steps.csv",
+      "sizeBytes": 1642,
+      "sha256": "d6b492b5a10d4245b3eeeb57f4f2be5de465b4610fd43e54ac8149d181d32771",
+      "contentType": "text/csv"
+    },
+    {
+      "stepId": "daily-hr",
+      "outputId": "daily-heart-rate",
+      "path": "steps/07_daily_heart_rate_features/outputs/daily-heart-rate.csv",
+      "sizeBytes": 2809,
+      "sha256": "51617c01897958453cf760403143e8f9c2b381bcc53855d14f10a560b183d4fd",
+      "contentType": "text/csv"
+    },
+    {
+      "stepId": "join-daily",
+      "outputId": "joined",
+      "path": "steps/08_join_two_tables/outputs/joined.csv",
+      "sizeBytes": 3359,
+      "sha256": "106ed0c4a3e711bdba23bfc1eb64f781b9bc8f9bf93d8fc2b3894d4c3a7a6fd4",
+      "contentType": "text/csv"
+    },
+    {
+      "stepId": "summarise",
+      "outputId": "summary",
+      "path": "steps/09_summarise_numeric_columns/outputs/summary.json",
+      "sizeBytes": 1213,
+      "sha256": "f5798f5e78556f33f055d619b0f0503a254449169ee86ce5d4d52cb75a2223ac",
+      "contentType": "application/json"
+    },
+    {
+      "stepId": "visualise",
+      "outputId": "plot",
+      "path": "steps/10_plot_a_table/outputs/plot.png",
+      "sizeBytes": 81571,
+      "sha256": "cbb18832e915b016ff3a0f68bdb722caa9326b1141b775c55e5422e5b38a8996",
+      "contentType": "image/png"
+    }
+  ]
+}

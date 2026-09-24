@@ -1,0 +1,40 @@
+services:
+  dsp-portal:
+    build:
+      # The directory holding this repo, carp-dsp and carp.core-kotlin. The
+      # server is built against the last two, so all three have to be in the
+      # context. Dockerfile.dockerignore keeps everything else out.
+      context: ..
+      dockerfile: carp-dsp-portal/Dockerfile
+    image: carp-dsp-portal:dev
+    ports:
+      - "8080:8080"
+    environment:
+      DSP_PORT: "8080"
+      DSP_VERSION: "dev"
+      # real runs workflows through the engine, simulated replays recorded
+      # results. Switchable live from the top bar; this is only the value the
+      # container starts with.
+      DSP_MODE: "real"
+      # Composed workflows, runs, schedules and uploads. On the named volume
+      # below, so a rebuild does not wipe a session mid-demo.
+      DSP_STATE: "/state/portal-state.json"
+      DSP_RUNS: "/state/runs"
+    # Optional, and gitignored: CARP_DSP_SQL_URL, CARP_DSP_SQL_USER and
+    # CARP_DSP_SQL_PASSWORD for core.io.query-sql. Steps inherit the server's
+    # environment, so credentials reach the step without being written into a
+    # workflow or a bundle.
+    env_file:
+      - path: .env
+        required: false
+    volumes:
+      - portal-state:/state
+      # Optional. The step library, demo workflows, scripts and sample data are
+      # baked into the image, so the portal runs without this. Mount a checkout
+      # to read them live instead - edit a step, restart, see it.
+      # - ../carp-dsp:/repo:ro
+      # and set DSP_REPO: "/repo" above.
+    restart: unless-stopped
+
+volumes:
+  portal-state:

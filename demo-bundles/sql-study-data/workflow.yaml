@@ -1,0 +1,46 @@
+schemaVersion: "1.0"
+
+metadata:
+  id: "wf-study-data-sql"
+  name: "Study data over SQL"
+  description: >-
+    Reads one study's stored data streams straight from the CARP database and
+    decodes them into the measurement and provenance tables. Both steps are
+    Kotlin library steps, so a run proves the task runtime works in the image.
+    The connection comes from CARP_DSP_SQL_URL, _USER and _PASSWORD in the
+    server's environment, never from this file.
+  version: "1.0"
+  tags:
+    - "carp"
+    - "sql"
+    - "library"
+
+steps:
+  - id: "query"
+    uses: "core.io.query-sql"
+    inputs:
+      - id: "query"
+        source:
+          type: "file"
+          path: "data/study-data.sql"
+    # Replaces the library default (--param minId=1, for its reference fixture).
+    # --from and --to select by arrival time. Run as written they read the
+    # conference week; a schedule sets them per run (the workflow's Time tab).
+    args:
+      - "--param"
+      - "studyId=5603c814-ee25-4b04-aa61-68dfc05244ef"
+      - "--from"
+      - "2025-06-25T00:00:00.000+00"
+      - "--to"
+      - "2025-07-25T00:00:00.000+00"
+
+  - id: "decode"
+    uses: "core.io.decode-carp-data-streams"
+    dependsOn:
+      - "query"
+    inputs:
+      - id: "rows"
+        source:
+          type: "step-output"
+          stepId: "query"
+          outputId: "rows"

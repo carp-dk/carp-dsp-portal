@@ -1,0 +1,29 @@
+# The build context is the directory holding the checkouts, so start by
+# excluding all of it and name the four the image needs. A neighbouring repo -
+# a paper, a notebook, an unrelated clone - never enters the context.
+*
+!carp-dsp-portal
+!carp-dsp
+!carp.core-kotlin
+!health-workflow-interfaces
+
+# Then the noise inside them. Later patterns win, so these apply to the four
+# directories re-included above.
+**/.git
+**/.gradle
+**/.idea
+**/.vscode
+**/build
+**/node_modules
+**/dist
+**/.pixi
+**/__pycache__
+**/.pytest_cache
+**/*.pyc
+**/*.log
+**/.env
+**/.env.*
+carp-dsp-portal/_stage
+carp-dsp-portal/data
+carp-dsp/carp.dsp.demo/results
+carp-dsp/carp.dsp.demo/eval_results
