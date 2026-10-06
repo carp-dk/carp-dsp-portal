@@ -9,6 +9,7 @@ import LibraryStep from './pages/LibraryStep';
 import Results from './pages/Results';
 import RunView from './pages/RunView';
 import Runs from './pages/Runs';
+import Settings from './pages/Settings';
 import Upload from './pages/Upload';
 import WorkflowDetail from './pages/WorkflowDetail';
 import Workflows from './pages/Workflows';
@@ -31,6 +32,7 @@ const App = () => (
         <Route path="/environments" element={<Environments />} />
         <Route path="/library/:stepId" element={<LibraryStep />} />
         <Route path="/upload" element={<Upload />} />
+        <Route path="/settings" element={<Settings />} />
         <Route path="/runs" element={<Runs />} />
         <Route path="/runs/:runId" element={<RunView />} />
         <Route path="/runs/:runId/results" element={<Results />} />

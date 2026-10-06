@@ -124,6 +124,26 @@ Writes go through a temp file and an atomic move, so a crash mid-write cannot
 leave a truncated file that fails to load next boot. A state file that cannot
 be read is logged and ignored, not fatal.
 
+## Run environment
+
+Variables every step receives, laid over the server's own environment. Not
+part of the analytics surface.
+
+| Method | Path | Body | Answers |
+|---|---|---|---|
+| `GET` | `/api/run-environment` | - | `RunVariable[]` |
+| `PUT` | `/api/run-environment` | `{name, value}` | `RunVariable[]` |
+| `POST` | `/api/run-environment/test-sql` | - | `{ok, message}` |
+
+- A `RunVariable` is `{name, value, set, source, secret}`, with `source` one of
+  `SAVED`, `CONTAINER`, `UNSET`. A secret (a name holding PASSWORD, SECRET,
+  TOKEN or KEY) always has a null `value`.
+- A null or empty `value` drops the saved value, so the container's applies again.
+- The three `CARP_DSP_SQL_*` variables are always listed.
+- `test-sql` connects with the values a run would get and runs `SELECT 1`.
+- Saved values live in `run-environment.properties` beside the state file, so
+  secrets stay out of it.
+
 ## Where content comes from
 
 The step library is owned by carp-dsp and is **not copied into this repo**. It is

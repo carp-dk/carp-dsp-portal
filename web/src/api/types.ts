@@ -499,3 +499,23 @@ export interface EnvironmentEntry {
   builtAt: string | null;
   lastUsedAt: string | null;
 }
+
+/**
+ * One variable steps receive. Portal-only.
+ *
+ * `source` says where the value comes from: saved in the portal, the container's
+ * environment, or nowhere. A secret's `value` is always null; `set` says whether
+ * it has one.
+ */
+export interface RunVariable {
+  name: string;
+  value: string | null;
+  set: boolean;
+  source: 'SAVED' | 'CONTAINER' | 'UNSET';
+  secret: boolean;
+}
+
+export interface ConnectionCheck {
+  ok: boolean;
+  message: string;
+}

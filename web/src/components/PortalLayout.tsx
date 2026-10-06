@@ -11,6 +11,7 @@ const NAV = [
   { to: '/library', label: 'Step library' },
   { to: '/environments', label: 'Environments' },
   { to: '/upload', label: 'Upload' },
+  { to: '/settings', label: 'Settings' },
 ];
 
 /**

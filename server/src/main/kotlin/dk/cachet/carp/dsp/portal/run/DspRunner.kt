@@ -4,6 +4,8 @@ import carp.dsp.core.application.execution.EnvironmentOutcome
 import carp.dsp.core.application.execution.ExecutionLogger
 import carp.dsp.core.application.run.WorkflowExecutor
 import carp.dsp.core.application.run.WorkflowPackage
+import carp.dsp.core.infrastructure.execution.DefaultPlanExecutor
+import carp.dsp.core.infrastructure.runtime.JvmCommandRunner
 import dk.cachet.carp.common.application.UUID
 import dk.cachet.carp.dsp.portal.api.ExecutionIssue
 import dk.cachet.carp.dsp.portal.api.ExecutionIssueKind
@@ -151,11 +153,17 @@ object DspRunner {
             return live.state()
         }
 
-        // Re-built with a logger bound to this run, so progress reaches LiveRun.
+        // Re-built with a logger bound to this run, so progress reaches LiveRun,
+        // and with the variables saved on the Settings page, read as the run starts.
         val running = WorkflowExecutor.filesystem(
             stepLibrary = PortalStepLibrary,
             workspaceRoot = runDir.toPath(),
-            options = WorkflowExecutor.Options(executionLogger = LiveRunLogger(live)),
+            options = WorkflowExecutor.Options(
+                executionLogger = LiveRunLogger(live),
+                executorOptions = DefaultPlanExecutor.Options(
+                    commandRunner = JvmCommandRunner(environment = RunEnvironment.overrides()),
+                ),
+            ),
         )
 
         val worker = pool.submit {

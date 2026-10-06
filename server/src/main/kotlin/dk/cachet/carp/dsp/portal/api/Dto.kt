@@ -572,3 +572,27 @@ data class EnvironmentDto(
     val builtAt: String?,
     val lastUsedAt: String?,
 )
+
+// ---- Run environment --------------------------------------------------------
+// Portal-only. See run/RunEnvironment.kt and api/SettingsRoutes.kt.
+
+/** Where a variable's value comes from: saved in the portal, the container, or nowhere. */
+@Serializable
+enum class VariableSource { SAVED, CONTAINER, UNSET }
+
+/** One variable steps receive. A secret's value is always null here; `set` says whether it has one. */
+@Serializable
+data class RunVariable(
+    val name: String,
+    val value: String?,
+    val set: Boolean,
+    val source: VariableSource,
+    val secret: Boolean,
+)
+
+/** Saves a value. Null or empty drops the saved value. */
+@Serializable
+data class SetRunVariable(val name: String, val value: String? = null)
+
+@Serializable
+data class ConnectionCheck(val ok: Boolean, val message: String)

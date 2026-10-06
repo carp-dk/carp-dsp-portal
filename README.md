@@ -63,6 +63,14 @@ server and run something before believing a dependency change.
 | `DSP_RUN_CONCURRENCY` | `1` | Workflows at once. One workflow can occupy the machine |
 | `DSP_STATE` | `data/portal-state.json` | Session state: uploads, composed workflows, run history |
 
+Steps get the server's environment, plus anything saved on the **Settings**
+page. Saved values apply from the next run, with no rebuild or restart, so a
+deployed portal's connection details (`CARP_DSP_SQL_URL`, `_USER`, `_PASSWORD`)
+can be fixed in place. They are stored in `run-environment.properties` beside
+`DSP_STATE`, not in the state file. Passwords are never shown. The page is open
+to anyone who can reach the portal. `DSP_*` settings are still read once, at
+startup.
+
 ## Docker
 
 ```bash
