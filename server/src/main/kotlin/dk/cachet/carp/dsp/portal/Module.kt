@@ -1,11 +1,11 @@
 package dk.cachet.carp.dsp.portal
 
-import dk.cachet.carp.dsp.portal.mock.MockStore
-import dk.cachet.carp.dsp.portal.mock.RepoSource
+import dk.cachet.carp.dsp.portal.store.WorkflowStore
+import dk.cachet.carp.dsp.portal.catalogue.RepoSource
 import dk.cachet.carp.dsp.portal.mock.RunSimulator
-import dk.cachet.carp.dsp.portal.mock.StateStore
-import dk.cachet.carp.dsp.portal.mock.StepLibrary
-import dk.cachet.carp.dsp.portal.mock.WorkflowLibrary
+import dk.cachet.carp.dsp.portal.store.StateStore
+import dk.cachet.carp.dsp.portal.catalogue.StepLibrary
+import dk.cachet.carp.dsp.portal.catalogue.WorkflowLibrary
 import dk.cachet.carp.dsp.portal.run.Scheduler
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpMethod
@@ -74,7 +74,7 @@ fun Application.module() {
     // The study starts with the one demo that has a recorded run behind it, so
     // the Runs page is never empty and real results are viewable without
     // waiting. Both seeds are no-ops when state was restored.
-    MockStore.seedFromLibrary()
+    WorkflowStore.seedFromLibrary()
     RunSimulator.seedRecordedRuns()
 
     logLoadedContent()
@@ -100,7 +100,7 @@ private fun Application.logLoadedContent() {
     log.info("Content source: ${RepoSource.mode}")
     log.info("Library steps: ${steps.size} - ${steps.joinToString { it.stepId }}")
     log.info("Demo workflows: ${demos.size} (${demos.count { it.valid }} valid)")
-    log.info("Study workflows: ${MockStore.list().size}")
+    log.info("Study workflows: ${WorkflowStore.list().size}")
     log.info("State file: ${StateStore.location()}")
 
     if (StepLibrary.loadFailures.isNotEmpty()) {

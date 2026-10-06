@@ -1,8 +1,10 @@
-package dk.cachet.carp.dsp.portal.mock
+package dk.cachet.carp.dsp.portal.catalogue
 
 import dk.cachet.carp.dsp.portal.api.DemoWorkflow
 import dk.cachet.carp.dsp.portal.api.WorkflowSummary
-import dk.cachet.carp.dsp.portal.run.Validation
+import dk.cachet.carp.dsp.portal.run.EngineValidator
+import dk.cachet.carp.dsp.portal.store.WorkflowParseException
+import dk.cachet.carp.dsp.portal.store.WorkflowStore
 
 /**
  * The demo workflows from carp-dsp, as a catalogue of examples.
@@ -21,11 +23,11 @@ object WorkflowLibrary {
                 // Filename stem stands in for a missing metadata.id.
                 val fallbackId = source.path.substringAfterLast('/').substringBeforeLast('.')
                 val parsed = runCatching {
-                    MockStore.parse(source.yaml, fallbackId = fallbackId)
+                    WorkflowStore.parse(source.yaml, fallbackId = fallbackId)
                 }
 
                 val report = parsed.getOrNull()
-                    ?.let { runCatching { Validation.validateDefinition(source.yaml) }.getOrNull() }
+                    ?.let { runCatching { EngineValidator.validateDefinition(source.yaml) }.getOrNull() }
 
                 val problems = report?.findings
                     ?.filter { it.severity == dk.cachet.carp.dsp.portal.api.Severity.ERROR }
@@ -59,6 +61,6 @@ object WorkflowLibrary {
             )
         }
 
-        return MockStore.put(MockStore.parse(demo.rawYaml, fallbackId = demo.workflowId)).summary
+        return WorkflowStore.put(WorkflowStore.parse(demo.rawYaml, fallbackId = demo.workflowId)).summary
     }
 }

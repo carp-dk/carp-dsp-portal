@@ -1,8 +1,9 @@
-package dk.cachet.carp.dsp.portal.mock
+package dk.cachet.carp.dsp.portal.store
 
 import carp.dsp.core.application.plan.StudyProtocolSnapshotDataTypeProvider
 import dk.cachet.carp.common.infrastructure.serialization.createDefaultJSON
 import dk.cachet.carp.dsp.portal.api.ProtocolSummary
+import dk.cachet.carp.dsp.portal.catalogue.RepoSource
 import dk.cachet.carp.protocols.application.StudyProtocolSnapshot
 import java.util.concurrent.ConcurrentHashMap
 

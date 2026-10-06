@@ -1,6 +1,6 @@
 package dk.cachet.carp.dsp.portal
 
-import dk.cachet.carp.dsp.portal.mock.BundleStore
+import dk.cachet.carp.dsp.portal.store.BundleStore
 import java.nio.file.Files
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest

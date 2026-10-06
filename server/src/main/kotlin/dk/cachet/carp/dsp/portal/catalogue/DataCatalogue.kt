@@ -1,6 +1,8 @@
-package dk.cachet.carp.dsp.portal.mock
+package dk.cachet.carp.dsp.portal.catalogue
 
 import dk.cachet.carp.dsp.portal.api.DataSource
+import dk.cachet.carp.dsp.portal.store.ProtocolStore
+import dk.cachet.carp.dsp.portal.store.StateStore
 import java.util.concurrent.ConcurrentHashMap
 
 /**

@@ -3,7 +3,7 @@ package dk.cachet.carp.dsp.portal
 import dk.cachet.carp.dsp.portal.api.BindingMode
 import dk.cachet.carp.dsp.portal.api.ParameterBinding
 import dk.cachet.carp.dsp.portal.api.WorkflowBindings
-import dk.cachet.carp.dsp.portal.mock.BindingStore
+import dk.cachet.carp.dsp.portal.store.BindingStore
 import dk.cachet.carp.dsp.portal.run.TimeBindings
 import dk.cachet.carp.dsp.portal.run.TimeWindow
 import java.time.Instant

@@ -1,8 +1,8 @@
 package dk.cachet.carp.dsp.portal
 
 import dk.cachet.carp.dsp.portal.api.PortSource
-import dk.cachet.carp.dsp.portal.mock.MockStore
-import dk.cachet.carp.dsp.portal.mock.WorkflowParseException
+import dk.cachet.carp.dsp.portal.store.WorkflowStore
+import dk.cachet.carp.dsp.portal.store.WorkflowParseException
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -50,7 +50,7 @@ class WorkflowViewTest {
           - uses: "core.viz.visualise"
     """.trimIndent()
 
-    private val view = MockStore.parse(yaml, fallbackId = "from-filename").definition
+    private val view = WorkflowStore.parse(yaml, fallbackId = "from-filename").definition
 
     @Test
     fun `a workflow without an id takes the fallback`() {
@@ -89,6 +89,6 @@ class WorkflowViewTest {
 
     @Test
     fun `a file that is not a workflow is refused with the codec's message`() {
-        assertFailsWith<WorkflowParseException> { MockStore.parse("steps: [", fallbackId = "x") }
+        assertFailsWith<WorkflowParseException> { WorkflowStore.parse("steps: [", fallbackId = "x") }
     }
 }

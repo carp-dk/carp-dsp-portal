@@ -16,6 +16,8 @@ import dk.cachet.carp.dsp.portal.api.StepRunResult
 import dk.cachet.carp.dsp.portal.api.StepSpec
 import dk.cachet.carp.dsp.portal.api.SummaryStatistic
 import dk.cachet.carp.dsp.portal.api.WorkflowArtifact
+import dk.cachet.carp.dsp.portal.store.StateStore
+import dk.cachet.carp.dsp.portal.store.WorkflowStore
 import java.time.Instant
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
@@ -120,7 +122,7 @@ object RunSimulator {
      */
     fun restore(records: List<RunRecord>) {
         records.forEach { record ->
-            val steps = MockStore.get(record.workflowId)
+            val steps = WorkflowStore.get(record.workflowId)
                 ?.definition
                 ?.steps
                 ?.associateBy { it.id }
@@ -158,7 +160,7 @@ object RunSimulator {
      */
     fun seedRecordedRuns() {
         RecordedRun.workflowIds().forEach { workflowId ->
-            val detail = MockStore.get(workflowId) ?: return@forEach
+            val detail = WorkflowStore.get(workflowId) ?: return@forEach
             val order = topologicalOrder(detail.definition.steps)
             if (order.isEmpty()) return@forEach
 
@@ -170,7 +172,7 @@ object RunSimulator {
                 Run(
                     executionId = executionId,
                     workflowId = workflowId,
-                    studyId = MockStore.DEMO_STUDY_ID,
+                    studyId = WorkflowStore.DEMO_STUDY_ID,
                     // Far enough back that every step window has passed.
                     startedAtMillis = System.currentTimeMillis() - SEEDED_AGE_MILLIS,
                     order = order,
@@ -181,7 +183,7 @@ object RunSimulator {
     }
 
     fun start(workflowId: String, studyId: String, context: RunContext? = null): ExecutorState? {
-        val detail = MockStore.get(workflowId) ?: return null
+        val detail = WorkflowStore.get(workflowId) ?: return null
         val order = topologicalOrder(detail.definition.steps)
 
         val run = Run(

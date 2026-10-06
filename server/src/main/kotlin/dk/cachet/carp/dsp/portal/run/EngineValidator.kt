@@ -6,20 +6,17 @@ import carp.dsp.core.application.run.WorkflowSource
 import dk.cachet.carp.dsp.portal.api.Finding
 import dk.cachet.carp.dsp.portal.api.Severity
 import dk.cachet.carp.dsp.portal.api.ValidationReport
-import dk.cachet.carp.dsp.portal.mock.BundleValidator
-import dk.cachet.carp.dsp.portal.mock.MockStore
-import dk.cachet.carp.dsp.portal.mock.ProtocolStore
-import dk.cachet.carp.dsp.portal.mock.WorkflowParseException
+import dk.cachet.carp.dsp.portal.store.WorkflowStore
+import dk.cachet.carp.dsp.portal.store.ProtocolStore
+import dk.cachet.carp.dsp.portal.store.WorkflowParseException
 import java.nio.file.Files
 import dk.cachet.carp.analytics.application.plan.PlanIssueSeverity as EngineSeverity
 
 /**
  * Validation by the engine that will run the workflow.
  *
- * [BundleValidator] answers the same questions with its own reimplementation of
- * resolution, which is the two-parser problem: a workflow can validate here and
- * fail there, and the demo finds out on stage. This hands the file to carp-dsp's
- * real resolve-and-plan path and reports what the planner says.
+ * Hands the file to carp-dsp's real resolve-and-plan path and reports what the
+ * planner says, so a workflow that validates here is one the engine will plan.
  *
  * Three checks stay on this side, because the planner is not in a position to
  * make them:
@@ -27,7 +24,7 @@ import dk.cachet.carp.analytics.application.plan.PlanIssueSeverity as EngineSeve
  * - **the bundle** - whether an uploaded archive carries the scripts its steps
  *   name. Validation sees paths; only execution sees bytes.
  * - **study data** - whether a `file` input names something this study holds.
- *   That is [dk.cachet.carp.dsp.portal.mock.DataCatalogue]'s question.
+ *   That is [dk.cachet.carp.dsp.portal.catalogue.DataCatalogue]'s question.
  * - **external attribution** - a missing uri or citation is a documentation gap,
  *   not something a planner has an opinion about.
  *
@@ -64,7 +61,7 @@ object EngineValidator {
         // Parsed for the report's own fields and for the checks below - never for
         // a verdict, which is the planner's.
         val detail = try {
-            MockStore.parse(yamlText)
+            WorkflowStore.parse(yamlText)
         } catch (e: WorkflowParseException) {
             return ValidationReport(
                 valid = false,
@@ -76,13 +73,13 @@ object EngineValidator {
 
         val steps = detail.definition.steps
         val normalised = paths.map { it.trim('/') }.toSet()
-        val referenced = steps.flatMap { BundleValidator.scriptRefsOf(it) }.toSet()
+        val referenced = steps.flatMap { BundleChecks.scriptRefsOf(it) }.toSet()
 
         val findings = plan(yamlText) +
-            BundleValidator.resolutionFindings(steps) +
-            BundleValidator.missingScriptFindings(steps, normalised, checkFiles) +
-            BundleValidator.boundaryFindings(steps, includeProtocol = false) +
-            if (checkFiles) BundleValidator.unreferencedFileFindings(normalised, referenced) else emptyList()
+            BundleChecks.resolutionFindings(steps) +
+            BundleChecks.missingScriptFindings(steps, normalised, checkFiles) +
+            BundleChecks.boundaryFindings(steps) +
+            if (checkFiles) BundleChecks.unreferencedFileFindings(normalised, referenced) else emptyList()
 
         return ValidationReport(
             valid = findings.none { it.severity == Severity.ERROR },
@@ -91,7 +88,7 @@ object EngineValidator {
             stepCount = steps.size,
             fileCount = if (checkFiles) normalised.size else 0,
             findings = findings,
-            resolutions = BundleValidator.resolutionsOf(steps, normalised, checkFiles),
+            resolutions = BundleChecks.resolutionsOf(steps, normalised, checkFiles),
         )
     }
 

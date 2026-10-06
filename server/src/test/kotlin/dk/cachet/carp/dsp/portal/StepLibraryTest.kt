@@ -1,7 +1,7 @@
 package dk.cachet.carp.dsp.portal
 
-import dk.cachet.carp.dsp.portal.mock.StepLibrary
-import dk.cachet.carp.dsp.portal.mock.WorkflowParseException
+import dk.cachet.carp.dsp.portal.catalogue.StepLibrary
+import dk.cachet.carp.dsp.portal.store.WorkflowParseException
 import dk.cachet.carp.dsp.portal.run.PortalStepLibrary
 import kotlin.test.Test
 import kotlin.test.assertEquals

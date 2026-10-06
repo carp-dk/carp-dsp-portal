@@ -3,7 +3,7 @@ package dk.cachet.carp.dsp.portal.run
 import dk.cachet.carp.dsp.portal.api.ExecutorState
 import dk.cachet.carp.dsp.portal.api.RunContext
 import dk.cachet.carp.dsp.portal.api.RunTrigger
-import dk.cachet.carp.dsp.portal.mock.RepoSource
+import dk.cachet.carp.dsp.portal.catalogue.RepoSource
 import dk.cachet.carp.dsp.portal.mock.RunSimulator
 
 /** Thrown when a run cannot be started; the message is shown to the user. */

@@ -1,13 +1,13 @@
 package dk.cachet.carp.dsp.portal.api
 
 import dk.cachet.carp.dsp.portal.ApiError
-import dk.cachet.carp.dsp.portal.mock.DataCatalogue
-import dk.cachet.carp.dsp.portal.mock.BindingStore
-import dk.cachet.carp.dsp.portal.mock.BundleStore
-import dk.cachet.carp.dsp.portal.mock.MockStore
-import dk.cachet.carp.dsp.portal.mock.ProtocolStore
-import dk.cachet.carp.dsp.portal.mock.toDto
-import dk.cachet.carp.dsp.portal.mock.RepoSource
+import dk.cachet.carp.dsp.portal.catalogue.DataCatalogue
+import dk.cachet.carp.dsp.portal.store.BindingStore
+import dk.cachet.carp.dsp.portal.store.BundleStore
+import dk.cachet.carp.dsp.portal.store.WorkflowStore
+import dk.cachet.carp.dsp.portal.store.ProtocolStore
+import dk.cachet.carp.dsp.portal.store.toDto
+import dk.cachet.carp.dsp.portal.catalogue.RepoSource
 import dk.cachet.carp.dsp.portal.mock.RecordedRun
 import dk.cachet.carp.dsp.portal.mock.RunSimulator
 import dk.cachet.carp.dsp.portal.run.DspRunner
@@ -15,7 +15,7 @@ import dk.cachet.carp.dsp.portal.run.EnvironmentReuseSetting
 import dk.cachet.carp.dsp.portal.run.Environments
 import dk.cachet.carp.dsp.portal.run.RunHistory
 import dk.cachet.carp.dsp.portal.run.RunMode
-import dk.cachet.carp.dsp.portal.run.Validation
+import dk.cachet.carp.dsp.portal.run.EngineValidator
 import dk.cachet.carp.dsp.portal.run.RunArtefacts
 import dk.cachet.carp.dsp.portal.run.Cadence
 import dk.cachet.carp.dsp.portal.run.RunLauncher
@@ -23,10 +23,10 @@ import dk.cachet.carp.dsp.portal.run.Scheduler
 import dk.cachet.carp.dsp.portal.run.TimeBindings
 import dk.cachet.carp.dsp.portal.run.instantOrNull
 import dk.cachet.carp.dsp.portal.run.RunNotStarted
-import dk.cachet.carp.dsp.portal.mock.ScheduleStore
-import dk.cachet.carp.dsp.portal.mock.StepLibrary
-import dk.cachet.carp.dsp.portal.mock.WorkflowLibrary
-import dk.cachet.carp.dsp.portal.mock.WorkflowParseException
+import dk.cachet.carp.dsp.portal.store.ScheduleStore
+import dk.cachet.carp.dsp.portal.catalogue.StepLibrary
+import dk.cachet.carp.dsp.portal.catalogue.WorkflowLibrary
+import dk.cachet.carp.dsp.portal.store.WorkflowParseException
 import io.ktor.http.ContentDisposition
 import io.ktor.http.ContentType
 import io.ktor.http.content.MultiPartData
@@ -65,10 +65,10 @@ fun Route.analyticsRoutes() {
 
         post("/WorkflowService") {
             when (val request = call.receive<WorkflowServiceRequest>()) {
-                is ListWorkflows -> call.respond(RunHistory.withLastRun(MockStore.list()))
+                is ListWorkflows -> call.respond(RunHistory.withLastRun(WorkflowStore.list()))
 
                 is GetWorkflow -> {
-                    val detail = MockStore.get(request.workflowId)
+                    val detail = WorkflowStore.get(request.workflowId)
                     if (detail == null) {
                         call.respond(
                             HttpStatusCode.NotFound,
@@ -81,7 +81,7 @@ fun Route.analyticsRoutes() {
 
                 is CreateWorkflow -> {
                     val detail = try {
-                        MockStore.parse(request.yaml, draft = request.draft)
+                        WorkflowStore.parse(request.yaml, draft = request.draft)
                             .also { if (!request.draft) requireValid(request.yaml) }
                     } catch (e: WorkflowParseException) {
                         call.respond(
@@ -98,7 +98,7 @@ fun Route.analyticsRoutes() {
                         val id = detail.summary.workflowId
                         // The id is the key, so saving over one already in the
                         // study would silently replace it. Make that a choice.
-                        if (MockStore.has(id) && !request.overwrite) {
+                        if (WorkflowStore.has(id) && !request.overwrite) {
                             call.respond(
                                 HttpStatusCode.Conflict,
                                 ApiError(
@@ -111,13 +111,13 @@ fun Route.analyticsRoutes() {
                             // A definition alone carries no files, so any a
                             // bundle saved under this id no longer belong to it.
                             BundleStore.remove(id)
-                            call.respond(MockStore.put(detail))
+                            call.respond(WorkflowStore.put(detail))
                         }
                     }
                 }
 
                 is DeleteWorkflow ->
-                    if (MockStore.remove(request.workflowId)) {
+                    if (WorkflowStore.remove(request.workflowId)) {
                         BundleStore.remove(request.workflowId)
                         BindingStore.remove(request.workflowId)
                         call.respond(HttpStatusCode.NoContent)
@@ -129,7 +129,7 @@ fun Route.analyticsRoutes() {
                     }
 
                 is ValidateBundle -> call.respond(
-                    Validation.validate(request.paths.toSet(), request.yaml),
+                    EngineValidator.validate(request.paths.toSet(), request.yaml),
                 )
 
                 is ParseWorkflow -> {
@@ -160,7 +160,7 @@ fun Route.analyticsRoutes() {
                 // A workflow already in the study. In real mode this is the
                 // same engine path as an upload, reading the stored YAML.
                 is ExecuteWorkflow -> {
-                    val detail = MockStore.get(request.workflowId)
+                    val detail = WorkflowStore.get(request.workflowId)
                     if (detail == null) {
                         call.respond(
                             HttpStatusCode.NotFound,
@@ -448,7 +448,7 @@ fun Route.analyticsRoutes() {
      */
     get("/workflows/{workflowId}/time-parameters") {
         val workflowId = call.parameters["workflowId"].orEmpty()
-        val detail = MockStore.get(workflowId)
+        val detail = WorkflowStore.get(workflowId)
 
         if (detail == null) {
             call.respond(HttpStatusCode.NotFound, ApiError("WorkflowNotFound", "No workflow '$workflowId'."))
@@ -459,7 +459,7 @@ fun Route.analyticsRoutes() {
 
     put("/workflows/{workflowId}/time-parameters") {
         val workflowId = call.parameters["workflowId"].orEmpty()
-        val detail = MockStore.get(workflowId)
+        val detail = WorkflowStore.get(workflowId)
         val requested = call.receive<WorkflowBindings>().copy(workflowId = workflowId)
 
         if (detail == null) {
@@ -547,7 +547,7 @@ fun Route.analyticsRoutes() {
             return@post
         }
 
-        call.respond(Validation.validate(paths, yaml))
+        call.respond(EngineValidator.validate(paths, yaml))
     }
 
     /**
@@ -648,7 +648,7 @@ fun Route.analyticsRoutes() {
 
         val yaml = entries.getValue(workflowKey).decodeToString()
         val detail = try {
-            MockStore.parse(yaml, draft = draft)
+            WorkflowStore.parse(yaml, draft = draft)
         } catch (e: WorkflowParseException) {
             call.respond(
                 HttpStatusCode.BadRequest,
@@ -657,7 +657,7 @@ fun Route.analyticsRoutes() {
             return@post
         }
 
-        val report = if (draft) null else Validation.validate(entries.keys, yaml)
+        val report = if (draft) null else EngineValidator.validate(entries.keys, yaml)
         if (report != null && !report.valid) {
             call.respond(
                 HttpStatusCode.UnprocessableEntity,
@@ -670,7 +670,7 @@ fun Route.analyticsRoutes() {
         }
 
         val id = detail.summary.workflowId
-        if (MockStore.has(id) && !overwrite) {
+        if (WorkflowStore.has(id) && !overwrite) {
             call.respond(
                 HttpStatusCode.Conflict,
                 ApiError(
@@ -682,7 +682,7 @@ fun Route.analyticsRoutes() {
         }
 
         BundleStore.save(id, entries - workflowKey)
-        call.respond(MockStore.put(detail))
+        call.respond(WorkflowStore.put(detail))
     }
 
     get("/artefacts/{executionId}/{stepId}/{outputId}") {
@@ -834,12 +834,12 @@ private suspend fun readBundle(call: ApplicationCall): Pair<Map<String, ByteArra
  */
 private fun remember(detail: WorkflowDetail, files: Map<String, ByteArray> = emptyMap()) {
     val id = detail.summary.workflowId
-    if (MockStore.has(id)) return
+    if (WorkflowStore.has(id)) return
 
     // Kept with the workflow, or running it later from the study would stage
     // nothing and fail on the first file the bundle carried.
     BundleStore.save(id, files)
-    MockStore.put(detail)
+    WorkflowStore.put(detail)
 }
 
 /**
@@ -884,7 +884,7 @@ private suspend fun startRun(
  */
 private suspend fun parseOrRespond(call: ApplicationCall, yaml: String): WorkflowDetail? =
     try {
-        MockStore.parse(yaml).also { requireValid(yaml) }
+        WorkflowStore.parse(yaml).also { requireValid(yaml) }
     } catch (e: WorkflowParseException) {
         call.respond(
             HttpStatusCode.BadRequest,
@@ -899,7 +899,7 @@ private suspend fun parseOrRespond(call: ApplicationCall, yaml: String): Workflo
  * @throws WorkflowParseException naming the error, and how many more there are.
  */
 private fun requireValid(yaml: String) {
-    val errors = Validation.validateDefinition(yaml).findings.filter { it.severity == Severity.ERROR }
+    val errors = EngineValidator.validateDefinition(yaml).findings.filter { it.severity == Severity.ERROR }
     val first = errors.firstOrNull() ?: return
     val more = if (errors.size > 1) " (and ${errors.size - 1} more)" else ""
 

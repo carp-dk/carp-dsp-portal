@@ -1,8 +1,8 @@
 package dk.cachet.carp.dsp.portal
 
-import dk.cachet.carp.dsp.portal.mock.ProtocolStore
-import dk.cachet.carp.dsp.portal.mock.WorkflowParseException
-import dk.cachet.carp.dsp.portal.mock.toDto
+import dk.cachet.carp.dsp.portal.store.ProtocolStore
+import dk.cachet.carp.dsp.portal.store.WorkflowParseException
+import dk.cachet.carp.dsp.portal.store.toDto
 import java.io.File
 import kotlin.test.Test
 import kotlin.test.assertEquals

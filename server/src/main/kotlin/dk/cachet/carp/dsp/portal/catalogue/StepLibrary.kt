@@ -1,4 +1,4 @@
-package dk.cachet.carp.dsp.portal.mock
+package dk.cachet.carp.dsp.portal.catalogue
 
 import carp.dsp.core.application.authoring.descriptor.DefinedStepDescriptor
 import carp.dsp.core.application.authoring.descriptor.WorkflowDescriptor
@@ -10,6 +10,8 @@ import carp.dsp.core.infrastructure.serialization.DecodeResult
 import carp.dsp.core.infrastructure.serialization.WorkflowYamlCodec
 import dk.cachet.carp.dsp.portal.api.WorkflowView
 import dk.cachet.carp.dsp.portal.api.toView
+import dk.cachet.carp.dsp.portal.store.StateStore
+import dk.cachet.carp.dsp.portal.store.WorkflowParseException
 import kotlinx.serialization.Serializable
 import java.security.MessageDigest
 import java.util.concurrent.ConcurrentHashMap

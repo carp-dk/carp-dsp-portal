@@ -1,10 +1,12 @@
-package dk.cachet.carp.dsp.portal.mock
+package dk.cachet.carp.dsp.portal.store
 
 import carp.dsp.core.infrastructure.serialization.DecodeResult
 import carp.dsp.core.infrastructure.serialization.WorkflowYamlCodec
 import dk.cachet.carp.dsp.portal.api.WorkflowDetail
 import dk.cachet.carp.dsp.portal.api.WorkflowSummary
 import dk.cachet.carp.dsp.portal.api.toView
+import dk.cachet.carp.dsp.portal.catalogue.WorkflowLibrary
+import dk.cachet.carp.dsp.portal.mock.RunSimulator
 import java.util.concurrent.ConcurrentHashMap
 
 /** Thrown when an uploaded file cannot be read as a workflow. */
@@ -17,7 +19,7 @@ class WorkflowParseException(message: String) : Exception(message)
  * Uploads are parsed the same way, so the upload page reports genuine failures
  * rather than scripted ones.
  */
-object MockStore {
+object WorkflowStore {
 
     private val codec = WorkflowYamlCodec()
 
@@ -30,7 +32,7 @@ object MockStore {
      */
     private val workflows = ConcurrentHashMap<String, WorkflowDetail>()
 
-    /** One study is enough for a mock. */
+    /** The one study the portal holds, until it is connected to CARP. */
     const val DEMO_STUDY_ID = "11111111-1111-1111-1111-111111111111"
 
     /**

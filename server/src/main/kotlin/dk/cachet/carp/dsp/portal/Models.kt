@@ -34,8 +34,6 @@ data class HealthResponse(
     val stepLoadFailures: Map<String, String> = emptyMap(),
     /** Where the session is saved, so a lost session can be diagnosed. */
     val stateFile: String = "",
-    /** "engine" or "mock" - which validator answers. See run/Validation.kt. */
-    val validator: String = "",
     /** "exact" or "superset" - how far environment reuse may stretch. */
     val environmentReuse: String = "",
 )

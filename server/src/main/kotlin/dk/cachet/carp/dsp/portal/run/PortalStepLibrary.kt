@@ -3,7 +3,7 @@ package dk.cachet.carp.dsp.portal.run
 import carp.dsp.core.application.authoring.resolve.LibraryStep
 import carp.dsp.core.application.authoring.resolve.StepLibrary
 import carp.dsp.steps.ClasspathStepLibrary
-import dk.cachet.carp.dsp.portal.mock.StepLibrary as Catalogue
+import dk.cachet.carp.dsp.portal.catalogue.StepLibrary as Catalogue
 
 /**
  * The step library runs and validation resolve against: the vendored library,
