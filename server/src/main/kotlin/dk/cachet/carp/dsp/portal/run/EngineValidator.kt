@@ -73,12 +73,12 @@ object EngineValidator {
 
         val steps = detail.definition.steps
         val normalised = paths.map { it.trim('/') }.toSet()
-        val referenced = steps.flatMap { BundleChecks.scriptRefsOf(it) }.toSet()
+        val referenced = steps.flatMap { BundleChecks.scriptRefsOf(it) + BundleChecks.fileInputsOf(it) }.toSet()
 
         val findings = plan(yamlText) +
             BundleChecks.resolutionFindings(steps) +
             BundleChecks.missingScriptFindings(steps, normalised, checkFiles) +
-            BundleChecks.boundaryFindings(steps) +
+            BundleChecks.boundaryFindings(steps, if (checkFiles) normalised else emptySet()) +
             if (checkFiles) BundleChecks.unreferencedFileFindings(normalised, referenced) else emptyList()
 
         return ValidationReport(
