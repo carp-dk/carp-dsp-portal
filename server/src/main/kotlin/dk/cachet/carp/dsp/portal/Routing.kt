@@ -3,13 +3,12 @@ package dk.cachet.carp.dsp.portal
 import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
 import dk.cachet.carp.dsp.portal.api.analyticsRoutes
-import dk.cachet.carp.dsp.portal.mock.MockStore
-import dk.cachet.carp.dsp.portal.mock.RepoSource
-import dk.cachet.carp.dsp.portal.mock.StateStore
-import dk.cachet.carp.dsp.portal.mock.StepLibrary
-import dk.cachet.carp.dsp.portal.mock.WorkflowLibrary
+import dk.cachet.carp.dsp.portal.store.WorkflowStore
+import dk.cachet.carp.dsp.portal.catalogue.RepoSource
+import dk.cachet.carp.dsp.portal.store.StateStore
+import dk.cachet.carp.dsp.portal.catalogue.StepLibrary
+import dk.cachet.carp.dsp.portal.catalogue.WorkflowLibrary
 import dk.cachet.carp.dsp.portal.run.EnvironmentReuseSetting
-import dk.cachet.carp.dsp.portal.run.Validation
 import io.ktor.http.defaultForFilePath
 import io.ktor.server.application.Application
 import io.ktor.server.response.respond
@@ -41,10 +40,9 @@ fun Application.configureRouting() {
                     source = RepoSource.mode,
                     librarySteps = StepLibrary.list().size,
                     demoWorkflows = WorkflowLibrary.list().size,
-                    studyWorkflows = MockStore.list().size,
+                    studyWorkflows = WorkflowStore.list().size,
                     stepLoadFailures = StepLibrary.loadFailures,
                     stateFile = StateStore.location(),
-                    validator = Validation.mode,
                     environmentReuse = EnvironmentReuseSetting.mode,
                 ),
             )

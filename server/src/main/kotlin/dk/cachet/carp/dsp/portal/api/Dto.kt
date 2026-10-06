@@ -1,18 +1,17 @@
 package dk.cachet.carp.dsp.portal.api
 
-import dk.cachet.carp.dsp.portal.mock.WorkflowFile
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonElement
 
 /**
- * Wire shapes for the mock, mirroring carp.analytics.core.
+ * The portal's wire contract: what the web client reads.
  *
- * These are copies, not the real types. Depending on carp.analytics.core would
- * mean a composite build against a sibling clone of carp.core-kotlin, which the
- * mock does not need and which would slow the Docker build considerably. The
- * cost is that these can drift; docs/api-contract.md records where they came
- * from.
+ * Shaped after carp.analytics.core and filled from core's real types at the
+ * boundary (see run/DspRunner.kt). They are kept as the portal's own because the
+ * web client is built on them, and because they carry what core does not yet
+ * have: cancelled runs, live provisioning and run context. docs/api-contract.md
+ * records where each departs from core.
  *
  * UUIDs and Instants travel as strings, matching how core serialises them.
  */
@@ -233,7 +232,7 @@ data class WorkflowSummary(
 @Serializable
 data class WorkflowDetail(
     val summary: WorkflowSummary,
-    val definition: WorkflowFile,
+    val definition: WorkflowView,
     val rawYaml: String,
 )
 
@@ -378,7 +377,7 @@ data class Finding(
     val path: String? = null,
 )
 
-/** How one step resolves, and what it still needs. */
+/** How one-step resolves, and what it still needs. */
 @Serializable
 data class StepResolution(
     val stepId: String,

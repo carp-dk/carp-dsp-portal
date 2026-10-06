@@ -1,8 +1,11 @@
-package dk.cachet.carp.dsp.portal.mock
+package dk.cachet.carp.dsp.portal.store
 
 import dk.cachet.carp.dsp.portal.api.DataSource
 import dk.cachet.carp.dsp.portal.api.Schedule
 import dk.cachet.carp.dsp.portal.api.WorkflowBindings
+import dk.cachet.carp.dsp.portal.catalogue.DataCatalogue
+import dk.cachet.carp.dsp.portal.catalogue.StepLibrary
+import dk.cachet.carp.dsp.portal.mock.RunSimulator
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import org.slf4j.LoggerFactory
@@ -81,13 +84,9 @@ object StateStore {
             }
             state.workflows.forEach { stored ->
                 runCatching {
-                    MockStore.put(
-                        MockStore.parse(
-                            stored.yaml,
-                            validate = !stored.draft,
-                            draft = stored.draft,
-                        ),
-                    )
+                    // Not validated again: it was when it was saved, and a stricter
+                    // engine since then should not make saved work disappear.
+                    WorkflowStore.put(WorkflowStore.parse(stored.yaml, draft = stored.draft))
                 }
             }
             state.dataFiles.forEach { DataCatalogue.restoreFile(it) }
@@ -118,7 +117,7 @@ object StateStore {
 
         synchronized(lock) {
             val state = PortalState(
-                workflows = MockStore.snapshot(),
+                workflows = WorkflowStore.snapshot(),
                 runs = RunSimulator.snapshot(),
                 schedules = ScheduleStore.snapshot(),
                 protocols = ProtocolStore.uploadedSnapshot(),

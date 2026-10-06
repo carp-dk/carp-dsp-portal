@@ -4,7 +4,7 @@ import type {
   PortSource,
   StepSpec,
   TaskSpec,
-  WorkflowFile,
+  WorkflowView,
 } from '../api/types';
 
 /**
@@ -258,7 +258,8 @@ export const draftToYaml = (draft: Draft): string => {
           lines.push(`        scriptPath: ${quote(task.entryPoint.scriptPath)}`);
         }
         if (task.entryPoint.module) {
-          lines.push(`        module: ${quote(task.entryPoint.module)}`);
+          // Core's field is moduleName; the view calls it module.
+          lines.push(`        moduleName: ${quote(task.entryPoint.module)}`);
         }
       }
       if (task.args.length) {
@@ -349,7 +350,7 @@ export const draftToYaml = (draft: Draft): string => {
  * `uses:` step does not restate them.
  */
 export const draftFromWorkflow = (
-  file: WorkflowFile,
+  file: WorkflowView,
   library: LibraryEntry[],
 ): Draft => {
   const byId = new Map(library.map((e) => [e.stepId, e]));

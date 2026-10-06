@@ -1,4 +1,4 @@
-package dk.cachet.carp.dsp.portal.mock
+package dk.cachet.carp.dsp.portal.store
 
 import dk.cachet.carp.dsp.portal.api.WorkflowBindings
 import java.util.concurrent.ConcurrentHashMap

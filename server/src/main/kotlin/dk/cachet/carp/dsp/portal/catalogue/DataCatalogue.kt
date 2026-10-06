@@ -1,6 +1,8 @@
-package dk.cachet.carp.dsp.portal.mock
+package dk.cachet.carp.dsp.portal.catalogue
 
 import dk.cachet.carp.dsp.portal.api.DataSource
+import dk.cachet.carp.dsp.portal.store.ProtocolStore
+import dk.cachet.carp.dsp.portal.store.StateStore
 import java.util.concurrent.ConcurrentHashMap
 
 /**
@@ -46,14 +48,14 @@ object DataCatalogue {
     fun list(): List<DataSource> {
         val protocol = ProtocolStore.active()
 
-        val fromProtocol = protocol?.collectedDataTypes.orEmpty().map { dataType ->
+        val fromProtocol = protocol?.let { ProtocolStore.collectedDataTypes(it) }.orEmpty().map { dataType ->
             DataSource(
                 kind = "protocol",
                 id = dataType,
                 name = dataType.substringAfterLast('.'),
                 description = "Collected by ${protocol?.name} v${protocol?.version}",
                 dataType = dataType,
-                protocolId = protocol?.id,
+                protocolId = protocol?.id?.toString(),
             )
         }
 

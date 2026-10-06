@@ -5,9 +5,9 @@ import dk.cachet.carp.dsp.portal.api.ExecutorState
 import dk.cachet.carp.dsp.portal.api.RunTrigger
 import dk.cachet.carp.dsp.portal.api.Schedule
 import dk.cachet.carp.dsp.portal.api.ScheduleView
-import dk.cachet.carp.dsp.portal.mock.BundleStore
-import dk.cachet.carp.dsp.portal.mock.MockStore
-import dk.cachet.carp.dsp.portal.mock.ScheduleStore
+import dk.cachet.carp.dsp.portal.store.BundleStore
+import dk.cachet.carp.dsp.portal.store.WorkflowStore
+import dk.cachet.carp.dsp.portal.store.ScheduleStore
 import org.slf4j.LoggerFactory
 import java.time.Duration
 import java.time.Instant
@@ -145,7 +145,7 @@ object Scheduler {
             TimeWindow(from, to)
         }
 
-        val detail = MockStore.get(schedule.workflowId)
+        val detail = WorkflowStore.get(schedule.workflowId)
         if (detail == null) {
             refuse(schedule, fire, "its workflow '${schedule.workflowId}' is no longer in the study")
             return

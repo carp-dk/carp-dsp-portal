@@ -9,6 +9,7 @@ junit-jupiter = "5.11.3"
 [libraries]
 carp-core-common = { module = "dk.cachet.carp:carp-core-common" }
 carp-core-analytics = { module = "dk.cachet.carp:carp-core-analytics" }
+carp-core-protocols = { module = "dk.cachet.carp:carp-core-protocols" }
 carp-dsp-core = { module = "carp.dsp.core:carp.dsp.core" }
 carp-dsp-steps = { module = "carp.dsp.steps:carp.dsp.steps" }
 ktor-server-core = { module = "io.ktor:ktor-server-core", version.ref = "ktor" }

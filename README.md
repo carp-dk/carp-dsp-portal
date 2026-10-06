@@ -94,8 +94,10 @@ Real: uploading a workflow, validating it, running it — stored or uploaded, on
 its own or as a zipped package — and its results: per-step progress, artefacts,
 downloads. Runs are written to `DSP_RUNS` as they go, so they survive a restart.
 
-Still mocked, in `server/.../mock/`: the step library and demo catalogue, the
-data page, schedules.
+Workflows, library steps and protocols are read with carp-dsp's and carp
+core's own types. The portal's state is in `server/.../store/`, the step library,
+demo catalogue and data page in `catalogue/`. Only the simulated run mode is
+left in `mock/`.
 
 ## Real and simulated
 

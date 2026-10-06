@@ -13,7 +13,7 @@ import dk.cachet.carp.dsp.portal.api.ParameterBinding
 import dk.cachet.carp.dsp.portal.api.TimeParameterDto
 import dk.cachet.carp.dsp.portal.api.TimeParametersView
 import dk.cachet.carp.dsp.portal.api.WorkflowBindings
-import dk.cachet.carp.dsp.portal.mock.BindingStore
+import dk.cachet.carp.dsp.portal.store.BindingStore
 import java.time.Instant
 import kotlin.time.Instant as KInstant
 
