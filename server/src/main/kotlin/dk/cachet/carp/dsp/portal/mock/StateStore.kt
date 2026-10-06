@@ -81,13 +81,9 @@ object StateStore {
             }
             state.workflows.forEach { stored ->
                 runCatching {
-                    MockStore.put(
-                        MockStore.parse(
-                            stored.yaml,
-                            validate = !stored.draft,
-                            draft = stored.draft,
-                        ),
-                    )
+                    // Not validated again: it was when it was saved, and a stricter
+                    // engine since then should not make saved work disappear.
+                    MockStore.put(MockStore.parse(stored.yaml, draft = stored.draft))
                 }
             }
             state.dataFiles.forEach { DataCatalogue.restoreFile(it) }

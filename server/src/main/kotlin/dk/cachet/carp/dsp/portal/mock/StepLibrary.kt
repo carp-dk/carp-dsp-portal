@@ -1,109 +1,46 @@
 package dk.cachet.carp.dsp.portal.mock
 
-import com.charleskorn.kaml.Yaml
-import com.charleskorn.kaml.YamlConfiguration
+import carp.dsp.core.application.authoring.descriptor.DefinedStepDescriptor
+import carp.dsp.core.application.authoring.descriptor.WorkflowDescriptor
+import carp.dsp.core.application.authoring.resolve.CertificationLevel
+import carp.dsp.core.application.authoring.resolve.CertificationRecord
+import carp.dsp.core.application.authoring.resolve.LibraryStep
+import carp.dsp.core.application.authoring.resolve.StepCertificationFile
+import carp.dsp.core.infrastructure.serialization.DecodeResult
+import carp.dsp.core.infrastructure.serialization.WorkflowYamlCodec
+import dk.cachet.carp.dsp.portal.api.WorkflowView
+import dk.cachet.carp.dsp.portal.api.toView
 import kotlinx.serialization.Serializable
+import java.security.MessageDigest
+import java.util.concurrent.ConcurrentHashMap
 
 /**
- * The step library, read from the real `step.yaml` files in
- * carp.dsp.steps.
+ * The step library as the Library pages show it: every step, its README, its
+ * certification and its files.
  *
- * Jars cannot list directories, so `index.txt` records the paths. Regenerate it
- * with `find . -name step.yaml` from the resource root after adding a step.
+ * `step.yaml` and `certification.yaml` are read with core's codec and records,
+ * the same the engine resolves with, so a step reads the same here as when it
+ * runs. The listing itself comes from [RepoSource], since core's classpath
+ * library looks steps up by id but cannot list them.
  */
 object StepLibrary {
 
-    private val yaml = Yaml(configuration = YamlConfiguration(strictMode = false))
-
-    @Serializable
-    data class StepLibraryFile(
-        val schemaVersion: String = "1.0",
-        val metadata: WorkflowMetadata,
-        val environments: Map<String, EnvironmentSpec> = emptyMap(),
-        val steps: List<StepSpec> = emptyList(),
-        val library: LibraryBlock? = null,
-    )
-
-    @Serializable
-    data class LibraryBlock(
-        val tier: String? = null,
-        val subject: String? = null,
-        val environment: LibraryEnvironment? = null,
-        val implementations: List<Implementation> = emptyList(),
-        val method: Method? = null,
-        val reference: Reference? = null,
-    )
-
-    @Serializable
-    data class LibraryEnvironment(
-        val default: String? = null,
-        val requires: Requires? = null,
-    )
-
-    @Serializable
-    data class Requires(
-        val kind: List<String> = emptyList(),
-        val interpreter: Interpreter? = null,
-        /**
-         * Objects, not strings: `- name: pandas` / `version: ">=2.0"`.
-         *
-         * Only `select-columns` and `generate-hr-steps` declare `packages: []`,
-         * which is why those two were the only steps loading while this was
-         * typed as `List<String>`.
-         */
-        val packages: List<Package> = emptyList(),
-    )
-
-    @Serializable
-    data class Package(val name: String, val version: String? = null)
-
-    @Serializable
-    data class Interpreter(val name: String? = null, val version: String? = null)
-
-    @Serializable
-    data class Implementation(val language: String, val path: String? = null)
-
-    @Serializable
-    data class Method(val name: String? = null, val citation: String? = null)
-
-    @Serializable
-    data class Reference(
-        val input: String? = null,
-        val expected: String? = null,
-        val tolerance: Tolerance? = null,
-    )
-
-    @Serializable
-    data class Tolerance(val float: Double? = null)
+    private val codec = WorkflowYamlCodec()
 
     /**
-     * The conformance record. `level` is the gate: a step is `gated` until it
-     * has been reviewed, and `reviewedHash` is what ties the review to the
-     * content it covered.
+     * One library entry.
+     *
+     * @property dir Directory relative to the steps root; the key for fetching files.
+     * @property files Everything in that directory: implementations, tests, fixtures.
      */
-    @Serializable
-    data class Certification(
-        val id: String? = null,
-        val version: String? = null,
-        val level: String? = null,
-        val contentHash: String? = null,
-        val reviewedOn: String? = null,
-        val reviewer: String? = null,
-        val reviewedPr: String? = null,
-        val reviewedHash: String? = null,
-    )
-
-    /** One library entry: the parsed file, its certification, and its README. */
     @Serializable
     data class Entry(
         val stepId: String,
-        val definition: StepLibraryFile,
-        val certification: Certification? = null,
+        val definition: WorkflowView,
+        val certification: CertificationRecord? = null,
         val readme: String? = null,
         val rawYaml: String,
-        /** Directory relative to the steps root - the key for fetching files. */
         val dir: String = "",
-        /** Everything in that directory: implementations, tests, fixtures. */
         val files: List<String> = emptyList(),
     )
 
@@ -114,45 +51,40 @@ object StepLibrary {
      * can never quietly shadow a gated step, and so a restart returns the
      * library to exactly what is in the repo.
      */
-    private val uploaded = java.util.concurrent.ConcurrentHashMap<String, Entry>()
+    private val uploaded = ConcurrentHashMap<String, Entry>()
 
     private val entries: Map<String, Entry> get() = bundled + uploaded
 
     /**
-     * Parses a `step.yaml` and adds it. Returns the entry, or throws
-     * [WorkflowParseException] with something a person can act on.
+     * Parses a `step.yaml` and adds it, as a gated step with no reviewer.
      *
-     * Anything added here is unreviewed by definition: the real library gates
-     * on a PR and a conformance review, so the certification is written as
-     * `gated` with no reviewer rather than left absent.
+     * @throws WorkflowParseException when the file does not parse, has no id,
+     *   names a vendored step, or does not hold exactly one step with its own task.
      */
     fun add(yamlText: String): Entry {
-        val definition = try {
-            yaml.decodeFromString(StepLibraryFile.serializer(), yamlText)
-        } catch (e: Exception) {
-            throw WorkflowParseException(e.message ?: "The step file could not be read.")
-        }
+        val descriptor = decode(yamlText)
+        val id = descriptor.metadata.id.orEmpty()
 
-        val id = definition.metadata.id
         if (id.isBlank()) {
             throw WorkflowParseException("The step needs a metadata.id, e.g. 'core.reshape.my-step'.")
         }
         if (id in bundled) {
             throw WorkflowParseException("'$id' is already in the vendored library and cannot be replaced here.")
         }
-        if (definition.steps.isEmpty()) {
-            throw WorkflowParseException("A step file needs exactly one entry under 'steps:'.")
+        if (descriptor.steps.singleOrNull() !is DefinedStepDescriptor) {
+            throw WorkflowParseException("A step file needs exactly one entry under 'steps:', with its own task.")
         }
 
+        // Unreviewed by definition: the real library gates on a PR and a
+        // conformance review, so this says gated rather than saying nothing.
         val entry = Entry(
             stepId = id,
-            definition = definition,
-            certification = Certification(
+            definition = descriptor.toView(id),
+            certification = CertificationRecord(
                 id = id,
-                version = definition.metadata.version,
-                level = "gated",
+                version = descriptor.metadata.version,
+                level = CertificationLevel.GATED,
             ),
-            readme = null,
             rawYaml = yamlText,
         )
         uploaded[id] = entry
@@ -164,30 +96,41 @@ object StepLibrary {
     fun uploadedSnapshot(): List<String> = uploaded.values.map { it.rawYaml }
 
     /**
-     * Why a step file was skipped, keyed by its directory.
-     *
-     * very useful for debugging when steps don't load.
+     * A portal-added step as the engine resolves it, or null when there is none
+     * under [id] at [version]. A null [version] matches any.
      */
+    fun uploadedStep(id: String, version: String?): LibraryStep? {
+        val entry = uploaded[id] ?: return null
+        val descriptor = decode(entry.rawYaml)
+        val step = descriptor.steps.singleOrNull() as? DefinedStepDescriptor ?: return null
+        if (version != null && version != descriptor.metadata.version) return null
+
+        return LibraryStep(
+            version = descriptor.metadata.version,
+            step = step,
+            environments = descriptor.environments,
+            contentHash = sha256(entry.rawYaml),
+        )
+    }
+
+    /** Why a step file was skipped, keyed by its directory. */
     val loadFailures: MutableMap<String, String> = linkedMapOf()
 
     private fun load(): Map<String, Entry> =
         RepoSource.steps()
             .mapNotNull { source ->
-                val definition = try {
-                    yaml.decodeFromString(StepLibraryFile.serializer(), source.stepYaml)
-                } catch (e: Exception) {
-                    loadFailures[source.dir] = e.message ?: e::class.simpleName.orEmpty()
+                val descriptor = try {
+                    decode(source.stepYaml)
+                } catch (e: WorkflowParseException) {
+                    loadFailures[source.dir] = e.message.orEmpty()
                     return@mapNotNull null
                 }
+                val id = descriptor.metadata.id ?: source.dir.replace('/', '.')
 
                 Entry(
-                    stepId = definition.metadata.id,
-                    definition = definition,
-                    certification = source.certificationYaml?.let { cert ->
-                        runCatching {
-                            yaml.decodeFromString(Certification.serializer(), cert)
-                        }.getOrNull()
-                    },
+                    stepId = id,
+                    definition = descriptor.toView(id),
+                    certification = source.certificationYaml?.let(StepCertificationFile::parse),
                     readme = source.readme,
                     rawYaml = source.stepYaml,
                     dir = source.dir,
@@ -199,4 +142,14 @@ object StepLibrary {
     fun list(): List<Entry> = entries.values.sortedBy { it.stepId }
 
     fun get(stepId: String): Entry? = entries[stepId]
+
+    private fun decode(yamlText: String): WorkflowDescriptor = when (val result = codec.decode(yamlText)) {
+        is DecodeResult.Success -> result.descriptor
+        is DecodeResult.MalformedYaml -> throw WorkflowParseException(result.message)
+        is DecodeResult.SchemaError -> throw WorkflowParseException(result.message)
+        is DecodeResult.PolicyViolation -> throw WorkflowParseException(result.message)
+    }
+
+    private fun sha256(text: String): String =
+        MessageDigest.getInstance("SHA-256").digest(text.toByteArray()).joinToString("") { "%02x".format(it) }
 }

@@ -3,7 +3,9 @@ package dk.cachet.carp.dsp.portal.mock
 import dk.cachet.carp.dsp.portal.api.Finding
 import dk.cachet.carp.dsp.portal.api.Severity
 import dk.cachet.carp.dsp.portal.api.StepResolution
+import dk.cachet.carp.dsp.portal.api.StepSpec
 import dk.cachet.carp.dsp.portal.api.ValidationReport
+import dk.cachet.carp.dsp.portal.api.WorkflowView
 
 /**
  * Checks that an uploaded workflow bundle carries everything it needs.
@@ -60,7 +62,7 @@ object BundleValidator {
         // Schema and graph checks first - nothing below is meaningful if the
         // file does not parse.
         val detail = try {
-            MockStore.parse(yamlText)
+            MockStore.parse(yamlText).also { checkGraph(it.definition) }
         } catch (e: WorkflowParseException) {
             return ValidationReport(
                 valid = false,
@@ -446,5 +448,83 @@ object BundleValidator {
                 }
             }
         }
+    }
+
+    /**
+     * The graph checks this validator makes before the others: steps present,
+     * ids unique, every reference pointing somewhere, and no cycle.
+     *
+     * Kept here rather than in parsing, which only reads the file now. Goes with
+     * this class when the engine is the only validator.
+     */
+    private fun checkGraph(file: WorkflowView) {
+        if (file.steps.isEmpty()) {
+            throw WorkflowParseException("The workflow has no steps.")
+        }
+
+        val stepIds = file.steps.map { it.id }
+        stepIds.groupingBy { it }.eachCount()
+            .filterValues { it > 1 }
+            .keys
+            .firstOrNull()
+            ?.let { throw WorkflowParseException("Duplicate step id: $it") }
+
+        file.steps.forEach { step ->
+            step.dependsOn.firstOrNull { it !in stepIds }?.let {
+                throw WorkflowParseException("Step '${step.id}' depends on '$it', which does not exist.")
+            }
+            step.inputs.mapNotNull { it.source?.stepId }
+                .firstOrNull { it !in stepIds }
+                ?.let {
+                    throw WorkflowParseException("Step '${step.id}' reads from '$it', which does not exist.")
+                }
+            step.environmentId?.let { envId ->
+                if (envId !in file.environments.keys) {
+                    throw WorkflowParseException(
+                        "Step '${step.id}' uses environment '$envId', which is not declared.",
+                    )
+                }
+            }
+        }
+
+        detectCycle(file)?.let {
+            throw WorkflowParseException("The workflow has a dependency cycle: $it")
+        }
+    }
+
+    /**
+     * Returns a readable cycle path, or null when the graph is acyclic.
+     *
+     * Walks control *and* data edges together. Checking only `dependsOn` misses
+     * a step that declares no dependency but reads an output from further down
+     * the pipeline - which is exactly the fault the `inj-cycle` fixture
+     * injects, and it is unrunnable either way.
+     */
+    private fun detectCycle(file: WorkflowView): String? {
+        val known = file.steps.map { it.id }.toSet()
+        val edges = file.steps.associate { step ->
+            step.id to (
+                step.dependsOn +
+                    step.inputs.mapNotNull { it.source?.stepId }
+                ).filter { it in known }.distinct()
+        }
+        val visiting = mutableSetOf<String>()
+        val done = mutableSetOf<String>()
+        var cycle: String? = null
+
+        fun walk(id: String, path: List<String>) {
+            if (cycle != null || id in done) return
+            if (id in visiting) {
+                cycle = (path + id).dropWhile { it != id }.joinToString(" -> ")
+                return
+            }
+            visiting += id
+            edges[id].orEmpty().forEach { walk(it, path + id) }
+            visiting -= id
+            done += id
+        }
+
+        edges.keys.forEach { walk(it, emptyList()) }
+        return cycle
     }
 }

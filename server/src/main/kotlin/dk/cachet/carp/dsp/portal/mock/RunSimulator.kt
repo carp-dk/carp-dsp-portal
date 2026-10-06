@@ -13,6 +13,7 @@ import dk.cachet.carp.dsp.portal.api.ResourceRef
 import dk.cachet.carp.dsp.portal.api.RunContext
 import dk.cachet.carp.dsp.portal.api.StepRunMetadata
 import dk.cachet.carp.dsp.portal.api.StepRunResult
+import dk.cachet.carp.dsp.portal.api.StepSpec
 import dk.cachet.carp.dsp.portal.api.SummaryStatistic
 import dk.cachet.carp.dsp.portal.api.WorkflowArtifact
 import java.time.Instant

@@ -1,6 +1,5 @@
 package dk.cachet.carp.dsp.portal.api
 
-import dk.cachet.carp.dsp.portal.mock.WorkflowFile
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonElement
@@ -233,7 +232,7 @@ data class WorkflowSummary(
 @Serializable
 data class WorkflowDetail(
     val summary: WorkflowSummary,
-    val definition: WorkflowFile,
+    val definition: WorkflowView,
     val rawYaml: String,
 )
 

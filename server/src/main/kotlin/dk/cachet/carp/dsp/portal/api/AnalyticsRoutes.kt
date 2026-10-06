@@ -81,11 +81,8 @@ fun Route.analyticsRoutes() {
 
                 is CreateWorkflow -> {
                     val detail = try {
-                        MockStore.parse(
-                            request.yaml,
-                            validate = !request.draft,
-                            draft = request.draft,
-                        )
+                        MockStore.parse(request.yaml, draft = request.draft)
+                            .also { if (!request.draft) requireValid(request.yaml) }
                     } catch (e: WorkflowParseException) {
                         call.respond(
                             HttpStatusCode.BadRequest,
@@ -651,7 +648,7 @@ fun Route.analyticsRoutes() {
 
         val yaml = entries.getValue(workflowKey).decodeToString()
         val detail = try {
-            MockStore.parse(yaml, validate = false, draft = draft)
+            MockStore.parse(yaml, draft = draft)
         } catch (e: WorkflowParseException) {
             call.respond(
                 HttpStatusCode.BadRequest,
@@ -887,7 +884,7 @@ private suspend fun startRun(
  */
 private suspend fun parseOrRespond(call: ApplicationCall, yaml: String): WorkflowDetail? =
     try {
-        MockStore.parse(yaml)
+        MockStore.parse(yaml).also { requireValid(yaml) }
     } catch (e: WorkflowParseException) {
         call.respond(
             HttpStatusCode.BadRequest,
@@ -895,3 +892,16 @@ private suspend fun parseOrRespond(call: ApplicationCall, yaml: String): Workflo
         )
         null
     }
+
+/**
+ * Throws with the engine's first error when [yaml] does not validate.
+ *
+ * @throws WorkflowParseException naming the error, and how many more there are.
+ */
+private fun requireValid(yaml: String) {
+    val errors = Validation.validateDefinition(yaml).findings.filter { it.severity == Severity.ERROR }
+    val first = errors.firstOrNull() ?: return
+    val more = if (errors.size > 1) " (and ${errors.size - 1} more)" else ""
+
+    throw WorkflowParseException(first.message + more)
+}

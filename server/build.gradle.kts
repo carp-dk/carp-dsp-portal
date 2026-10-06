@@ -44,6 +44,8 @@ dependencies {
     implementation(libs.carp.dsp.steps)
     implementation(libs.carp.core.common)
     implementation(libs.carp.core.analytics)
+    // Study protocols are read as core's StudyProtocolSnapshot.
+    implementation(libs.carp.core.protocols)
 
     implementation(libs.ktor.server.core)
     implementation(libs.ktor.server.cio)

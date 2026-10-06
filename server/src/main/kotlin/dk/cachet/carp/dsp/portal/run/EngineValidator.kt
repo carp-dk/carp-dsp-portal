@@ -3,7 +3,6 @@ package dk.cachet.carp.dsp.portal.run
 import carp.dsp.core.application.plan.ProtocolDataTypeProvider
 import carp.dsp.core.application.run.WorkflowExecutor
 import carp.dsp.core.application.run.WorkflowSource
-import carp.dsp.steps.ClasspathStepLibrary
 import dk.cachet.carp.dsp.portal.api.Finding
 import dk.cachet.carp.dsp.portal.api.Severity
 import dk.cachet.carp.dsp.portal.api.ValidationReport
@@ -63,11 +62,9 @@ object EngineValidator {
         }
 
         // Parsed for the report's own fields and for the checks below - never for
-        // a verdict. `validate = false` is what makes that true: MockStore's graph
-        // checks would otherwise throw first, and the planner's better message
-        // would never be reached.
+        // a verdict, which is the planner's.
         val detail = try {
-            MockStore.parse(yamlText, validate = false)
+            MockStore.parse(yamlText)
         } catch (e: WorkflowParseException) {
             return ValidationReport(
                 valid = false,
@@ -112,7 +109,7 @@ object EngineValidator {
             val file = dir.resolve("workflow.yaml").toFile().apply { writeText(yamlText) }
 
             val executor = WorkflowExecutor.filesystem(
-                stepLibrary = ClasspathStepLibrary(),
+                stepLibrary = PortalStepLibrary,
                 workspaceRoot = dir.resolve("workspace"),
                 options = WorkflowExecutor.Options(protocolDataTypeProvider = protocols),
             )

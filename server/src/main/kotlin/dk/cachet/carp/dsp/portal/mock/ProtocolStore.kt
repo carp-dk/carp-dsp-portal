@@ -1,21 +1,22 @@
 package dk.cachet.carp.dsp.portal.mock
 
+import carp.dsp.core.application.plan.StudyProtocolSnapshotDataTypeProvider
+import dk.cachet.carp.common.infrastructure.serialization.createDefaultJSON
 import dk.cachet.carp.dsp.portal.api.ProtocolSummary
-import kotlinx.serialization.Serializable
-import kotlinx.serialization.json.Json
+import dk.cachet.carp.protocols.application.StudyProtocolSnapshot
 import java.util.concurrent.ConcurrentHashMap
 
 /**
  * Top level, not a member of [ProtocolStore]: an extension declared inside an
  * object is only in scope within it, so the routes could not import it.
  */
-fun ProtocolStore.Snapshot.toDto(active: Boolean) = ProtocolSummary(
-    id = id,
+fun StudyProtocolSnapshot.toDto(active: Boolean) = ProtocolSummary(
+    id = id.toString(),
     name = name,
     version = version,
     description = description,
-    deviceRoles = primaryDevices.mapNotNull { it.roleName },
-    collectedDataTypes = collectedDataTypes,
+    deviceRoles = primaryDevices.map { it.roleName },
+    collectedDataTypes = ProtocolStore.collectedDataTypes(this),
     active = active,
 )
 
@@ -27,60 +28,24 @@ fun ProtocolStore.Snapshot.toDto(active: Boolean) = ProtocolSummary(
  * be uploaded. That matches the coupling design, which validates against a
  * protocol *definition* rather than a deployment - no live study needed.
  *
- * Only the fields the coupling check needs are modelled. A real
- * StudyProtocolSnapshot carries far more; unknown keys are ignored.
+ * Protocols are carp core's [StudyProtocolSnapshot], read with carp's own JSON,
+ * and what they collect is worked out by the provider the engine plans with.
  */
 object ProtocolStore {
 
-    private val json = Json { ignoreUnknownKeys = true }
-    private val loader = ProtocolStore::class.java.classLoader
-
-    @Serializable
-    data class Snapshot(
-        val id: String,
-        val name: String,
-        val version: Int = 1,
-        val description: String? = null,
-        val ownerId: String? = null,
-        val createdOn: String? = null,
-        val primaryDevices: List<Device> = emptyList(),
-        val tasks: List<Task> = emptyList(),
-    ) {
-        /**
-         * Every CARP DataType this protocol collects.
-         *
-         * This is the set a `protocol`-sourced workflow input is checked
-         * against. Matching is on the domain DataType, never on file format.
-         */
-        val collectedDataTypes: List<String>
-            get() = tasks.flatMap { task -> task.measures.mapNotNull { it.type } }.distinct()
-    }
-
-    @Serializable
-    data class Device(
-        val roleName: String? = null,
-        val isPrimaryDevice: Boolean = false,
-    )
-
-    @Serializable
-    data class Task(
-        val name: String? = null,
-        val description: String? = null,
-        val measures: List<Measure> = emptyList(),
-    )
-
-    @Serializable
-    data class Measure(val type: String? = null)
+    private val json = createDefaultJSON()
 
     /** Keyed by id and version - the fixtures share an id and differ by version. */
-    private val protocols = ConcurrentHashMap<String, Snapshot>()
+    private val protocols = ConcurrentHashMap<String, StudyProtocolSnapshot>()
 
     private fun key(id: String, version: Int) = "$id@v$version"
 
+    private fun key(snapshot: StudyProtocolSnapshot) = key(snapshot.id.toString(), snapshot.version)
+
     init {
         RepoSource.protocols().forEach { text ->
-            runCatching { json.decodeFromString<Snapshot>(text) }
-                .onSuccess { protocols[key(it.id, it.version)] = it }
+            runCatching { json.decodeFromString(StudyProtocolSnapshot.serializer(), text) }
+                .onSuccess { protocols[key(it)] = it }
         }
     }
 
@@ -91,17 +56,13 @@ object ProtocolStore {
      * collects heart rate, v2 does not.
      */
     @Volatile
-    private var activeKey: String? = protocols.values
-        .minByOrNull { it.version }
-        ?.let { key(it.id, it.version) }
+    private var activeKey: String? = protocols.values.minByOrNull { it.version }?.let { key(it) }
 
-    fun list(): List<Snapshot> = protocols.values.sortedWith(
-        compareBy({ it.name }, { it.version }),
-    )
+    fun list(): List<StudyProtocolSnapshot> = protocols.values.sortedWith(compareBy({ it.name }, { it.version }))
 
-    fun active(): Snapshot? = activeKey?.let { protocols[it] }
+    fun active(): StudyProtocolSnapshot? = activeKey?.let { protocols[it] }
 
-    fun activate(id: String, version: Int): Snapshot? {
+    fun activate(id: String, version: Int): StudyProtocolSnapshot? {
         val found = protocols[key(id, version)] ?: return null
         activeKey = key(id, version)
         StateStore.save()
@@ -119,15 +80,18 @@ object ProtocolStore {
     /** Named apart from the `activeKey` property to avoid shadowing it. */
     fun activeProtocolKey(): String? = activeKey
 
-    fun add(text: String): Snapshot {
+    /**
+     * Adds a protocol and makes it the active one.
+     *
+     * @throws WorkflowParseException when [text] is not a study protocol snapshot.
+     */
+    fun add(text: String): StudyProtocolSnapshot {
         val snapshot = try {
-            json.decodeFromString<Snapshot>(text)
+            json.decodeFromString(StudyProtocolSnapshot.serializer(), text)
         } catch (e: Exception) {
-            throw WorkflowParseException(
-                e.message ?: "That does not look like a study protocol snapshot.",
-            )
+            throw WorkflowParseException(e.message ?: "That does not look like a study protocol snapshot.")
         }
-        val k = key(snapshot.id, snapshot.version)
+        val k = key(snapshot)
         protocols[k] = snapshot
         activeKey = k
         if (k !in fixtureKeys) uploadedJson[k] = text
@@ -136,19 +100,14 @@ object ProtocolStore {
     }
 
     /**
-     * Data types collected by a referenced protocol.
-     *
-     * Selects by id, then by version when given, latest otherwise - the rule
-     * the coupling design states. Null means the protocol is unknown here, which
-     * is a different answer from "collects nothing".
+     * Data types collected by a referenced protocol: at [version] when given,
+     * the latest otherwise. Null means the protocol, or that version of it, is
+     * not held here - a different answer from "collects nothing".
      */
-    fun collectedDataTypes(id: String, version: Int? = null): List<String>? {
-        val candidates = protocols.values.filter { it.id == id }
-        if (candidates.isEmpty()) return null
+    fun collectedDataTypes(id: String, version: Int? = null): List<String>? =
+        StudyProtocolSnapshotDataTypeProvider(protocols.values).collectedDataTypes(id, version)?.sorted()
 
-        val chosen = version?.let { v -> candidates.firstOrNull { it.version == v } }
-            ?: candidates.maxByOrNull { it.version }
-
-        return chosen?.collectedDataTypes
-    }
+    /** Every CARP DataType [snapshot] collects. */
+    fun collectedDataTypes(snapshot: StudyProtocolSnapshot): List<String> =
+        collectedDataTypes(snapshot.id.toString(), snapshot.version).orEmpty()
 }

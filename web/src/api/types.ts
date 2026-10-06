@@ -193,6 +193,7 @@ export interface PortSource {
   uri?: string | null;
   citation?: string | null;
   path?: string | null;
+  variableName?: string | null;
 }
 
 export interface PortSpec {
@@ -242,10 +243,10 @@ export interface StepSpec {
 export interface EnvironmentSpec {
   name: string;
   kind: string;
-  spec: { dependencies: string[]; pythonVersion: string[] };
+  spec: { dependencies: string[]; pythonVersion: string[]; channels?: string[] };
 }
 
-export interface WorkflowFile {
+export interface WorkflowView {
   schemaVersion: string;
   metadata: {
     id: string;
@@ -256,11 +257,13 @@ export interface WorkflowFile {
   };
   environments: Record<string, EnvironmentSpec>;
   steps: StepSpec[];
+  /** Publication metadata; set only on a library step. */
+  library?: LibraryBlock | null;
 }
 
 export interface WorkflowDetail {
   summary: WorkflowSummary;
-  definition: WorkflowFile;
+  definition: WorkflowView;
   rawYaml: string;
 }
 
@@ -446,19 +449,8 @@ export interface Certification {
   reviewedHash?: string | null;
 }
 
-export interface StepLibraryFile {
-  schemaVersion: string;
-  metadata: {
-    id: string;
-    name: string;
-    description?: string | null;
-    version: string;
-    tags: string[];
-  };
-  environments: Record<string, EnvironmentSpec>;
-  steps: StepSpec[];
-  library?: LibraryBlock | null;
-}
+/** A library step's file: a one-step workflow with its publication metadata. */
+export type StepLibraryFile = WorkflowView;
 
 export interface LibraryEntry {
   stepId: string;

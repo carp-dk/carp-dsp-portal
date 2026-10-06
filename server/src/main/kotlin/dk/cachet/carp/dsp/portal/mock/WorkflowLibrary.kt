@@ -21,7 +21,7 @@ object WorkflowLibrary {
                 // Filename stem stands in for a missing metadata.id.
                 val fallbackId = source.path.substringAfterLast('/').substringBeforeLast('.')
                 val parsed = runCatching {
-                    MockStore.parse(source.yaml, validate = true, fallbackId = fallbackId)
+                    MockStore.parse(source.yaml, fallbackId = fallbackId)
                 }
 
                 val report = parsed.getOrNull()
@@ -59,6 +59,6 @@ object WorkflowLibrary {
             )
         }
 
-        return MockStore.put(MockStore.parse(demo.rawYaml)).summary
+        return MockStore.put(MockStore.parse(demo.rawYaml, fallbackId = demo.workflowId)).summary
     }
 }

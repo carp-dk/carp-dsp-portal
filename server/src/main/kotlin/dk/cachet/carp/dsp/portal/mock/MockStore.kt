@@ -1,9 +1,10 @@
 package dk.cachet.carp.dsp.portal.mock
 
-import com.charleskorn.kaml.Yaml
-import com.charleskorn.kaml.YamlConfiguration
+import carp.dsp.core.infrastructure.serialization.DecodeResult
+import carp.dsp.core.infrastructure.serialization.WorkflowYamlCodec
 import dk.cachet.carp.dsp.portal.api.WorkflowDetail
 import dk.cachet.carp.dsp.portal.api.WorkflowSummary
+import dk.cachet.carp.dsp.portal.api.toView
 import java.util.concurrent.ConcurrentHashMap
 
 /** Thrown when an uploaded file cannot be read as a workflow. */
@@ -18,10 +19,7 @@ class WorkflowParseException(message: String) : Exception(message)
  */
 object MockStore {
 
-    /** Non-strict: fields this DTO set does not model are ignored, not fatal. */
-    private val yaml = Yaml(
-        configuration = YamlConfiguration(strictMode = false),
-    )
+    private val codec = WorkflowYamlCodec()
 
     /**
      * Workflows added to the study, by upload, composition, or copying a demo.
@@ -64,134 +62,45 @@ object MockStore {
     }
 
     /**
-     * Parses YAML into a [WorkflowDetail]. Kaml's failures carry the line and
-     * column, which is what makes the upload page's inline errors useful, so
-     * the message is passed through rather than replaced.
-     */
-    fun parse(text: String): WorkflowDetail = parse(text, validate = true)
-
-    /**
-     * Parses YAML into a [WorkflowDetail].
+     * Parses YAML into a [WorkflowDetail], with core's codec.
      *
-     * [validate] off is what "save as draft" needs: the file still has to be
-     * readable, because an unparseable workflow has no id to store it under,
-     * but the resolution checks are skipped so work in progress can be kept.
+     * Only reads the file: whether the workflow is valid is the engine's call,
+     * made by `Validation` where a verdict is needed. The codec's message carries
+     * kaml's line and column, which is what the upload page shows inline.
+     *
+     * @param fallbackId used when the file declares no `metadata.id`, normally
+     *   its filename.
+     * @throws WorkflowParseException when the file is not a readable workflow or
+     *   has no id.
      */
-    fun parse(
-        text: String,
-        validate: Boolean,
-        draft: Boolean = false,
-        /** Used when the file declares no `metadata.id`. Normally the filename. */
-        fallbackId: String? = null,
-    ): WorkflowDetail {
-        val parsed = try {
-            yaml.decodeFromString(WorkflowFile.serializer(), text)
-        } catch (e: Exception) {
-            throw WorkflowParseException(e.message ?: "Could not read the workflow file.")
+    fun parse(text: String, draft: Boolean = false, fallbackId: String? = null): WorkflowDetail {
+        val descriptor = when (val result = codec.decode(text)) {
+            is DecodeResult.Success -> result.descriptor
+            is DecodeResult.MalformedYaml -> throw WorkflowParseException(result.message)
+            is DecodeResult.SchemaError -> throw WorkflowParseException(result.message)
+            is DecodeResult.PolicyViolation -> throw WorkflowParseException(result.message)
         }
 
-        val id = parsed.metadata.id.ifBlank { fallbackId.orEmpty() }
+        val id = descriptor.metadata.id?.takeIf { it.isNotBlank() } ?: fallbackId.orEmpty()
         if (id.isBlank()) {
             throw WorkflowParseException("The workflow needs a metadata.id.")
         }
 
-        val file = if (id == parsed.metadata.id) {
-            parsed
-        } else {
-            parsed.copy(metadata = parsed.metadata.copy(id = id))
-        }
-
-        if (validate) validate(file)
+        val view = descriptor.toView(id)
 
         return WorkflowDetail(
             summary = WorkflowSummary(
-                workflowId = file.metadata.id,
-                name = file.metadata.name,
-                description = file.metadata.description,
-                version = file.metadata.version,
-                tags = file.metadata.tags,
-                stepCount = file.steps.size,
+                workflowId = id,
+                name = view.metadata.name,
+                description = view.metadata.description,
+                version = view.metadata.version,
+                tags = view.metadata.tags,
+                stepCount = view.steps.size,
                 draft = draft,
             ),
-            definition = file,
+            definition = view,
             rawYaml = text,
         )
-    }
-
-    /**
-     * The checks the real WorkflowService would make during resolution.
-     * Enough to make the upload page's error states real - not a full
-     * implementation of resolution.
-     */
-    private fun validate(file: WorkflowFile) {
-        if (file.steps.isEmpty()) {
-            throw WorkflowParseException("The workflow has no steps.")
-        }
-
-        val stepIds = file.steps.map { it.id }
-        stepIds.groupingBy { it }.eachCount()
-            .filterValues { it > 1 }
-            .keys
-            .firstOrNull()
-            ?.let { throw WorkflowParseException("Duplicate step id: $it") }
-
-        file.steps.forEach { step ->
-            step.dependsOn.firstOrNull { it !in stepIds }?.let {
-                throw WorkflowParseException("Step '${step.id}' depends on '$it', which does not exist.")
-            }
-            step.inputs.mapNotNull { it.source?.stepId }
-                .firstOrNull { it !in stepIds }
-                ?.let {
-                    throw WorkflowParseException("Step '${step.id}' reads from '$it', which does not exist.")
-                }
-            step.environmentId?.let { envId ->
-                if (envId !in file.environments.keys) {
-                    throw WorkflowParseException(
-                        "Step '${step.id}' uses environment '$envId', which is not declared.",
-                    )
-                }
-            }
-        }
-
-        detectCycle(file)?.let {
-            throw WorkflowParseException("The workflow has a dependency cycle: $it")
-        }
-    }
-
-    /**
-     * Returns a readable cycle path, or null when the graph is acyclic.
-     *
-     * Walks control *and* data edges together. Checking only `dependsOn` misses
-     * a step that declares no dependency but reads an output from further down
-     * the pipeline - which is exactly the fault the `inj-cycle` fixture
-     * injects, and it is unrunnable either way.
-     */
-    private fun detectCycle(file: WorkflowFile): String? {
-        val known = file.steps.map { it.id }.toSet()
-        val edges = file.steps.associate { step ->
-            step.id to (
-                step.dependsOn +
-                    step.inputs.mapNotNull { it.source?.stepId }
-                ).filter { it in known }.distinct()
-        }
-        val visiting = mutableSetOf<String>()
-        val done = mutableSetOf<String>()
-        var cycle: String? = null
-
-        fun walk(id: String, path: List<String>) {
-            if (cycle != null || id in done) return
-            if (id in visiting) {
-                cycle = (path + id).dropWhile { it != id }.joinToString(" -> ")
-                return
-            }
-            visiting += id
-            edges[id].orEmpty().forEach { walk(it, path + id) }
-            visiting -= id
-            done += id
-        }
-
-        edges.keys.forEach { walk(it, emptyList()) }
-        return cycle
     }
 
     fun list(): List<WorkflowSummary> =
