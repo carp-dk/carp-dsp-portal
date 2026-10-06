@@ -92,6 +92,11 @@ sealed interface ArtefactRegistryRequest
 @SerialName("GetRunArtefacts")
 data class GetRunArtefacts(val executionId: String) : ArtefactRegistryRequest
 
+/** Every settled run in a study that produced something, newest first. Portal-only. */
+@Serializable
+@SerialName("ListResultSets")
+data class ListResultSets(val studyId: String) : ArtefactRegistryRequest
+
 /**
  * Parse without storing.
  *

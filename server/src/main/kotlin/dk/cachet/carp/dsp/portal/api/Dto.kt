@@ -596,3 +596,20 @@ data class SetRunVariable(val name: String, val value: String? = null)
 
 @Serializable
 data class ConnectionCheck(val ok: Boolean, val message: String)
+
+// ---- Result sets ------------------------------------------------------------
+// Portal-only. See run/ResultSets.kt.
+
+/**
+ * One run's results, as a row in the results list.
+ *
+ * [finals] are the outputs of the run's last steps - the ones no other step
+ * reads from. Empty when those steps did not run. The workflow name is joined in
+ * by the caller, as for [ExecutorState].
+ */
+@Serializable
+data class ResultSet(
+    val run: ExecutorState,
+    val outputCount: Int,
+    val finals: List<ArtifactEntry>,
+)

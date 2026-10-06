@@ -519,3 +519,15 @@ export interface ConnectionCheck {
   ok: boolean;
   message: string;
 }
+
+/**
+ * One run's results, as a row in the results list. Portal-only.
+ *
+ * `finals` are the outputs of the run's last steps - the ones no other step reads
+ * from. Empty when those steps did not run.
+ */
+export interface ResultSet {
+  run: ExecutorState;
+  outputCount: number;
+  finals: ArtifactEntry[];
+}

@@ -8,6 +8,7 @@ import type {
   ProtocolSummary,
   ExecutorState,
   LibraryEntry,
+  ResultSet,
   RunVariable,
   Schedule,
   TimeParametersView,
@@ -418,6 +419,9 @@ export const getRunArtefacts = (executionId: string) =>
     __type: 'GetRunArtefacts',
     executionId,
   });
+
+export const listResultSets = (studyId = DEMO_STUDY_ID) =>
+  call<ResultSet[]>('ArtefactRegistryService', { __type: 'ListResultSets', studyId });
 
 // ---- StepLibraryService -----------------------------------------------------
 // Service is planned but not in core yet, so the request shape is a guess. The

@@ -1,6 +1,11 @@
 package dk.cachet.carp.dsp.portal
 
+import dk.cachet.carp.dsp.portal.api.ResultSet
 import io.ktor.client.request.get
+import io.ktor.client.request.post
+import io.ktor.client.request.setBody
+import io.ktor.http.ContentType
+import io.ktor.http.contentType
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.testing.testApplication
@@ -49,5 +54,20 @@ class RoutingTest {
                 response.status == HttpStatusCode.ServiceUnavailable,
             "expected SPA fallback, got ${response.status}",
         )
+    }
+
+    @Test
+    fun `result sets list the seeded run with its final outputs`() = testApplication {
+        application { module() }
+
+        val response = client.post("/api/analytics/ArtefactRegistryService") {
+            contentType(ContentType.Application.Json)
+            setBody("""{"__type":"ListResultSets","studyId":"11111111-1111-1111-1111-111111111111"}""")
+        }
+
+        assertEquals(HttpStatusCode.OK, response.status)
+        val sets = Json { ignoreUnknownKeys = true; classDiscriminator = "__type" }
+            .decodeFromString<List<ResultSet>>(response.bodyAsText())
+        assertTrue(sets.any { set -> set.finals.isNotEmpty() })
     }
 }

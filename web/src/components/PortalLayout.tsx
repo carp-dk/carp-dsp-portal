@@ -6,6 +6,7 @@ import RunModeSwitch from './RunModeSwitch';
 const NAV = [
   { to: '/workflows', label: 'Workflows' },
   { to: '/runs', label: 'Runs' },
+  { to: '/results', label: 'Results' },
   { to: '/data', label: 'Data' },
   { to: '/compose', label: 'Compose' },
   { to: '/library', label: 'Step library' },

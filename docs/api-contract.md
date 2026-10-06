@@ -92,9 +92,23 @@ mirror in `web/src/api/artifacts.ts`.
 The branch is encoded in the flat type string, so the results view groups by
 prefix - `dk.cachet.carp.dsp.analytic.`, `.media.`, `.control.`.
 
-Only `ImageArtifact` and `PlotArtifact` render inline. Everything else is a
-row with type, size and a download link. `PlotArtifact.spec` travels inline, so
-a plot can be re-rendered interactively with no second fetch.
+Only `ImageArtifact` and `PlotArtifact` render inline. Any output with a
+`preview` shows its first rows. Everything else is a row with type, size and a
+download link. `PlotArtifact.spec` travels inline, so a plot can be re-rendered
+interactively with no second fetch.
+
+### Result sets
+
+`ListResultSets(studyId)` on `ArtefactRegistryService` answers one
+`ResultSet` per settled run that produced anything, newest first:
+`{run, outputCount, finals}`. Portal-only.
+
+- `finals` are the outputs of the run's leaf steps: steps no other step reads
+  from or depends on, read off the workflow. Empty when those steps did not run.
+  If the workflow is gone, the last step that produced anything stands in.
+- Table previews here are not row-counted, so the list does not read every file
+  to the end.
+- Filtering (workflow, date) is done in the browser.
 
 ## What persists
 
