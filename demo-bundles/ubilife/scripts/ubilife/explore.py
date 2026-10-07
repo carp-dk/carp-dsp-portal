@@ -77,6 +77,30 @@ def weather(df):
 
 # ── Surveys ──────────────────────────────────────────────────────────────────
 
+# Labels by answer value, from the protocol's choices and the study's English
+# language file. An answer's text is in the participant's language ("Godt",
+# "Good"), so grouping by text splits one answer in two; its value does not.
+RATING = {0: "Very Boring", 1: "Boring", 2: "Neutral", 3: "Interesting", 4: "Amazing",
+          5: "I did not attend"}
+LABELS = {
+    "onboarding.gender.step": {0: "Female", 1: "Male", 2: "Other"},
+    "onboarding.academic.step": {1: "Student", 2: "Researcher", 3: "Postdoc", 4: "Professor", 5: "Other"},
+    "onboarding.prior.step": {0: "First", 1: "1-3", 2: "4-6", 3: "7+"},
+    "daily.sleep.step": {0: "Very Bad", 1: "Bad", 2: "Neutral", 3: "Good", 4: "Amazing"},
+    "daily.sleep.hours.step": {3: "<6 hours", 2: "6-8 hours", 1: ">8 hours"},
+}
+RATING_ORDER = [RATING[v] for v in range(5)]
+DID_NOT_ATTEND = 5
+
+
+def label(step_id, answer):
+    """The English label for an answer, by its value; its own text if the value is unknown."""
+    labels = RATING if ".rating." in step_id or step_id.startswith("survey.keynote.") else LABELS.get(step_id, {})
+    try:
+        return labels[int(answer["value"])]
+    except (KeyError, TypeError, ValueError):
+        return str(answer["text"])
+
 
 def extract_answer(answer):
     """(value, text) of an answer, whatever its shape (notebook 01)."""
@@ -119,14 +143,11 @@ def demographics(submitted):
             except (ValueError, TypeError):
                 pass
         if "onboarding.gender.step" in a:
-            genders.append(str(a["onboarding.gender.step"]["text"]))
+            genders.append(label("onboarding.gender.step", a["onboarding.gender.step"]))
         if "onboarding.academic.step" in a:
-            roles.append(str(a["onboarding.academic.step"]["text"]).replace("Student (PhD, MSc, BSc)", "Student"))
+            roles.append(label("onboarding.academic.step", a["onboarding.academic.step"]))
         if "onboarding.prior.step" in a:
-            prior.append(str(a["onboarding.prior.step"]["text"])
-                         .replace("This is my first UbiComp", "First")
-                         .replace(" UbiComp conferences", "")
-                         .replace(" UbiComp conference", ""))
+            prior.append(label("onboarding.prior.step", a["onboarding.prior.step"]))
     return ages, genders, roles, prior
 
 
@@ -140,9 +161,9 @@ def daily_surveys(submitted):
                 pass
         if survey_type == "daily.sleep.task":
             if "daily.sleep.step" in a:
-                quality.append(str(a["daily.sleep.step"]["text"]))
+                quality.append(label("daily.sleep.step", a["daily.sleep.step"]))
             if "daily.sleep.hours.step" in a:
-                hours.append(str(a["daily.sleep.hours.step"]["text"]))
+                hours.append(label("daily.sleep.hours.step", a["daily.sleep.hours.step"]))
     return stress, quality, hours
 
 
@@ -186,16 +207,24 @@ def bfi_dimensions(submitted):
 
 
 def session_ratings(submitted):
+    """Session and keynote ratings, labelled by value. "I did not attend" is not a rating, and is left out."""
     ratings = []
     for st, a in zip(submitted["survey_type"], submitted["answers"]):
         if st.startswith("survey.session.") and st.endswith(".task"):
             letter = st.replace("survey.session.", "").replace(".task", "")
             key = f"survey.session.rating.question.{letter}.step"
-            if key in a:
-                ratings.append({"session": f"Session {letter}", "rating": str(a[key]["text"])})
+            if key in a and _value(a[key]) != DID_NOT_ATTEND:
+                ratings.append({"session": f"Session {letter}", "rating": label(key, a[key])})
         elif st.startswith("survey.keynote.") and st.endswith(".task"):
             num = st.replace("survey.keynote.", "").replace(".task", "")
             key = f"survey.keynote.{num}.step"
-            if key in a:
-                ratings.append({"session": f"Keynote {num}", "rating": str(a[key]["text"])})
+            if key in a and _value(a[key]) != DID_NOT_ATTEND:
+                ratings.append({"session": f"Keynote {num}", "rating": label(key, a[key])})
     return ratings
+
+
+def _value(answer):
+    try:
+        return int(answer["value"])
+    except (KeyError, TypeError, ValueError):
+        return None

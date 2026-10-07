@@ -5,7 +5,11 @@ or read_export.py) and writes, for each requested stream, a table with
 participant_id, device_role_name, timestamp (microseconds) and that stream's
 fields, without their prefix.
 
-    --stream stepcount output.0 --stream survey output.1
+    --stream stepcount,stepevent output.0 --stream survey output.1
+
+A stream may name several types, comma-separated: rows of any of them go to the
+one table. That is how one workflow reads 2025's `stepcount` and 2026's
+`stepevent` as the same steps.
 
 A requested stream with no rows is written with its header only, and named on
 stdout, so a missing stream is visible without failing the run.
@@ -39,17 +43,17 @@ def main():
                              chunksize=CHUNK_ROWS):
         short = chunk["data_type"].str.removeprefix(CARP_PREFIX)
         for name in streams:
-            rows = chunk[short == name]
-            if rows.empty:
-                continue
-            prefix = f"{name}."
-            columns = [c for c in rows.columns if c.startswith(prefix)]
-            part = rows[["row_id", "sensor_start_time"] + columns].rename(
-                columns={c: c[len(prefix):] for c in columns} | {"sensor_start_time": "timestamp"})
-            # A field this stream never fills is a column of another type's
-            # making; the prefix is unique, so an all-empty one is just absent.
-            part = part.loc[:, (part != "").any(axis=0) | part.columns.isin(["row_id", "timestamp"])]
-            parts[name].append(part)
+            for data_type in name.split(","):
+                rows = chunk[short == data_type]
+                if rows.empty:
+                    continue
+                prefix = f"{data_type}."
+                columns = [c for c in rows.columns if c.startswith(prefix)]
+                part = rows[["row_id", "sensor_start_time"] + columns].rename(
+                    columns={c: c[len(prefix):] for c in columns} | {"sensor_start_time": "timestamp"})
+                # A column only another type fills is empty here; drop it.
+                part = part.loc[:, (part != "").any(axis=0) | part.columns.isin(["row_id", "timestamp"])]
+                parts[name].append(part)
 
     for name, path in streams.items():
         if not parts[name]:

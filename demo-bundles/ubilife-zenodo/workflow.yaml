@@ -1,0 +1,779 @@
+schemaVersion: "1.0"
+metadata:
+  id: "ubilife-2025-replication"
+  name: "UbiLife 2025 replication"
+  description: >-
+    Reproduces the UbiLife 2025 analysis (github.com/dtu-digital-health/UbiLife)
+    from the published export: the prepared tables of notebook 02, the 14 figures
+    of notebook 01, and a check of every number it reports.
+  version: "1.0"
+  tags:
+    - "ubilife"
+    - "ubicomp"
+    - "carp"
+    - "replication"
+    - "surveys"
+    - "steps"
+environments:
+  env-ubilife:
+    name: "UbiLife analysis"
+    kind: "pixi"
+    spec:
+      dependencies:
+        - "pypi:pandas"
+        - "pypi:numpy"
+        - "pypi:matplotlib>=3.9"
+        - "pypi:seaborn"
+        - "pypi:ijson"
+      pythonVersion:
+        - "3.12"
+steps:
+  # The published export. The library step declares its output as CSV whatever
+  # it fetches, so the next step declares no format for it.
+  - id: "fetch"
+    uses: "core.io.fetch-zenodo"
+    metadata:
+      name: "Fetch the UbiLife 2025 export"
+      description: "The published study export, Zenodo record 19220274 (CC BY 4.0)"
+      version: "1.0"
+    dependsOn: []
+    args:
+      - "--url"
+      - "https://zenodo.org/records/19220274/files/2026-01-15_15-07-44_study-data_ubilife-ubicomp-2025.zip?download=1"
+      - "--member"
+      - "2026-01-15_15-07-44_study-data_ubilife-ubicomp-2025/data-streams.json"
+  - id: "read"
+    metadata:
+      name: "Read the study export"
+      description: "data-streams.json to the measurement and provenance tables the SQL decoder writes"
+      version: "1.0"
+    environmentId: "env-ubilife"
+    dependsOn:
+      - "fetch"
+    task:
+      type: "command"
+      id: "task-read"
+      name: "read"
+      executable: "python"
+      args:
+        - "scripts/ubilife/read_export.py"
+        - "--input"
+        - "input.0"
+        - "--measurements"
+        - "output.0"
+        - "--provenance"
+        - "output.1"
+    inputs:
+      - id: "export"
+        descriptor:
+          encoding: "utf-8"
+          notes: "The export's data-streams.json"
+        source:
+          type: "step-output"
+          stepId: "fetch"
+          outputId: "file"
+    outputs:
+      - id: "measurements"
+        descriptor:
+          fileFormat: "csv"
+          encoding: "utf-8"
+          notes: "One row per measurement; a <type>.<field> column per data field"
+      - id: "provenance"
+        descriptor:
+          fileFormat: "csv"
+          encoding: "utf-8"
+          notes: "Deployment, device role and data type per row_id"
+  - id: "split"
+    metadata:
+      name: "Split into streams"
+      description: "One table per stream, with participant and timestamp"
+      version: "1.0"
+    environmentId: "env-ubilife"
+    dependsOn:
+      - "read"
+    task:
+      type: "command"
+      id: "task-split"
+      name: "split"
+      executable: "python"
+      args:
+        - "scripts/ubilife/split_streams.py"
+        - "--measurements"
+        - "input.0"
+        - "--provenance"
+        - "input.1"
+        - "--stream"
+        - "stepcount"
+        - "output.0"
+        - "--stream"
+        - "location"
+        - "output.1"
+        - "--stream"
+        - "activity"
+        - "output.2"
+        - "--stream"
+        - "survey"
+        - "output.3"
+        - "--stream"
+        - "heartbeat"
+        - "output.4"
+        - "--stream"
+        - "deviceinformation"
+        - "output.5"
+        - "--stream"
+        - "weather"
+        - "output.6"
+    inputs:
+      - id: "measurements"
+        descriptor:
+          fileFormat: "csv"
+          encoding: "utf-8"
+          notes: "Measurement table"
+        source:
+          type: "step-output"
+          stepId: "read"
+          outputId: "measurements"
+      - id: "provenance"
+        descriptor:
+          fileFormat: "csv"
+          encoding: "utf-8"
+          notes: "Provenance table"
+        source:
+          type: "step-output"
+          stepId: "read"
+          outputId: "provenance"
+    outputs:
+      - id: "steps"
+        descriptor:
+          fileFormat: "csv"
+          encoding: "utf-8"
+          notes: "Cumulative step counter"
+      - id: "location"
+        descriptor:
+          fileFormat: "csv"
+          encoding: "utf-8"
+          notes: "Location fixes"
+      - id: "activity"
+        descriptor:
+          fileFormat: "csv"
+          encoding: "utf-8"
+          notes: "Activity recognition"
+      - id: "survey"
+        descriptor:
+          fileFormat: "csv"
+          encoding: "utf-8"
+          notes: "Surveys, one row each, the task result as JSON"
+      - id: "heartbeat"
+        descriptor:
+          fileFormat: "csv"
+          encoding: "utf-8"
+          notes: "Sampling heartbeat"
+      - id: "deviceinformation"
+        descriptor:
+          fileFormat: "csv"
+          encoding: "utf-8"
+          notes: "Device reports"
+      - id: "weather"
+        descriptor:
+          fileFormat: "csv"
+          encoding: "utf-8"
+          notes: "Weather readings"
+  - id: "prepare-steps"
+    metadata:
+      name: "Prepare step counts"
+      description: "Conference week (13-16 Oct), counter to per-interval steps (notebook 02)"
+      version: "1.0"
+    environmentId: "env-ubilife"
+    dependsOn:
+      - "split"
+    task:
+      type: "command"
+      id: "task-prepare-steps"
+      name: "prepare-steps"
+      executable: "python"
+      args:
+        - "scripts/ubilife/prepare_steps.py"
+        - "--steps"
+        - "input.0"
+        - "--from"
+        - "2025-10-13"
+        - "--to"
+        - "2025-10-17"
+        - "--intervals"
+        - "output.0"
+        - "--daily"
+        - "output.1"
+    inputs:
+      - id: "steps"
+        descriptor:
+          fileFormat: "csv"
+          encoding: "utf-8"
+          notes: "Cumulative step counter"
+        source:
+          type: "step-output"
+          stepId: "split"
+          outputId: "steps"
+    outputs:
+      - id: "intervals"
+        descriptor:
+          fileFormat: "csv"
+          encoding: "utf-8"
+          notes: "Per-interval steps: steps_cumulative, steps_delta"
+      - id: "daily-steps"
+        descriptor:
+          fileFormat: "csv"
+          encoding: "utf-8"
+          notes: "Steps per participant per day"
+  - id: "prepare-surveys"
+    metadata:
+      name: "Parse surveys"
+      description: "Submitted surveys to one table per instrument (notebook 02)"
+      version: "1.0"
+    environmentId: "env-ubilife"
+    dependsOn:
+      - "split"
+    task:
+      type: "command"
+      id: "task-prepare-surveys"
+      name: "prepare-surveys"
+      executable: "python"
+      args:
+        - "scripts/ubilife/prepare_surveys.py"
+        - "--surveys"
+        - "input.0"
+        - "--onboarding"
+        - "output.0"
+        - "--stress"
+        - "output.1"
+        - "--sleep"
+        - "output.2"
+        - "--who5"
+        - "output.3"
+        - "--bfi10"
+        - "output.4"
+        - "--events"
+        - "output.5"
+    inputs:
+      - id: "survey"
+        descriptor:
+          fileFormat: "csv"
+          encoding: "utf-8"
+          notes: "Surveys, one row each, the task result as JSON"
+        source:
+          type: "step-output"
+          stepId: "split"
+          outputId: "survey"
+    outputs:
+      - id: "onboarding"
+        descriptor:
+          fileFormat: "csv"
+          encoding: "utf-8"
+          notes: "One row per participant: age, gender, role, prior UbiComp, presenter"
+      - id: "stress"
+        descriptor:
+          fileFormat: "csv"
+          encoding: "utf-8"
+          notes: "One row per answer: stress 0-10"
+      - id: "sleep"
+        descriptor:
+          fileFormat: "csv"
+          encoding: "utf-8"
+          notes: "One row per answer: sleep quality and hours"
+      - id: "who5"
+        descriptor:
+          fileFormat: "csv"
+          encoding: "utf-8"
+          notes: "One row per participant: WHO-5 items and score"
+      - id: "bfi10"
+        descriptor:
+          fileFormat: "csv"
+          encoding: "utf-8"
+          notes: "One row per participant: Big Five dimensions"
+      - id: "events"
+        descriptor:
+          fileFormat: "csv"
+          encoding: "utf-8"
+          notes: "One row per participant per session or keynote rating"
+  - id: "figures-overview"
+    metadata:
+      name: "Coverage figures"
+      description: "What was collected, when, and from whom (notebook 01, sections 1-3 and 8)"
+      version: "1.0"
+    environmentId: "env-ubilife"
+    dependsOn:
+      - "read"
+      - "split"
+    task:
+      type: "command"
+      id: "task-figures-overview"
+      name: "figures-overview"
+      executable: "python"
+      args:
+        - "scripts/ubilife/figures.py"
+        - "--provenance"
+        - "input.0"
+        - "--steps"
+        - "input.1"
+        - "--location"
+        - "input.2"
+        - "--activity"
+        - "input.3"
+        - "--survey"
+        - "input.4"
+        - "--heartbeat"
+        - "input.5"
+        - "--window-from"
+        - "2025-10-13"
+        - "--window-to"
+        - "2025-10-17"
+        - "--coverage-from"
+        - "2025-10-13 08:00:00"
+        - "--coverage-to"
+        - "2025-10-17 23:59:59"
+        - "--figure"
+        - "stream_overview"
+        - "output.0"
+        - "--figure"
+        - "daily_volume"
+        - "output.1"
+        - "--figure"
+        - "participant_spans"
+        - "output.2"
+        - "--figure"
+        - "records_per_participant"
+        - "output.3"
+        - "--figure"
+        - "heartbeat_coverage"
+        - "output.4"
+    inputs:
+      - id: "provenance"
+        descriptor:
+          fileFormat: "csv"
+          encoding: "utf-8"
+          notes: "Provenance table"
+        source:
+          type: "step-output"
+          stepId: "read"
+          outputId: "provenance"
+      - id: "steps"
+        descriptor:
+          fileFormat: "csv"
+          encoding: "utf-8"
+          notes: "Cumulative step counter"
+        source:
+          type: "step-output"
+          stepId: "split"
+          outputId: "steps"
+      - id: "location"
+        descriptor:
+          fileFormat: "csv"
+          encoding: "utf-8"
+          notes: "Location fixes"
+        source:
+          type: "step-output"
+          stepId: "split"
+          outputId: "location"
+      - id: "activity"
+        descriptor:
+          fileFormat: "csv"
+          encoding: "utf-8"
+          notes: "Activity recognition"
+        source:
+          type: "step-output"
+          stepId: "split"
+          outputId: "activity"
+      - id: "survey"
+        descriptor:
+          fileFormat: "csv"
+          encoding: "utf-8"
+          notes: "Surveys, one row each, the task result as JSON"
+        source:
+          type: "step-output"
+          stepId: "split"
+          outputId: "survey"
+      - id: "heartbeat"
+        descriptor:
+          fileFormat: "csv"
+          encoding: "utf-8"
+          notes: "Sampling heartbeat"
+        source:
+          type: "step-output"
+          stepId: "split"
+          outputId: "heartbeat"
+    outputs:
+      - id: "stream-overview"
+        descriptor:
+          fileFormat: "png"
+          notes: "Records and participants per stream"
+      - id: "daily-volume"
+        descriptor:
+          fileFormat: "png"
+          notes: "Records per day, four key streams"
+      - id: "participant-spans"
+        descriptor:
+          fileFormat: "png"
+          notes: "Each participant's active period"
+      - id: "records-per-participant"
+        descriptor:
+          fileFormat: "png"
+          notes: "Records per participant, ranked"
+      - id: "heartbeat-coverage"
+        descriptor:
+          fileFormat: "png"
+          notes: "Heartbeat coverage, 4-hour bins, conference period"
+  - id: "figures-sensors"
+    metadata:
+      name: "Sensor figures"
+      description: "Steps, activity, devices and weather (notebook 01, sections 4, 5 and 7)"
+      version: "1.0"
+    environmentId: "env-ubilife"
+    dependsOn:
+      - "split"
+    task:
+      type: "command"
+      id: "task-figures-sensors"
+      name: "figures-sensors"
+      executable: "python"
+      args:
+        - "scripts/ubilife/figures.py"
+        - "--steps"
+        - "input.0"
+        - "--activity"
+        - "input.1"
+        - "--deviceinformation"
+        - "input.2"
+        - "--weather"
+        - "input.3"
+        - "--window-from"
+        - "2025-10-13"
+        - "--window-to"
+        - "2025-10-17"
+        - "--coverage-from"
+        - "2025-10-13 08:00:00"
+        - "--coverage-to"
+        - "2025-10-17 23:59:59"
+        - "--figure"
+        - "step_cumulative_vs_delta"
+        - "output.0"
+        - "--figure"
+        - "activity_types"
+        - "output.1"
+        - "--figure"
+        - "devices"
+        - "output.2"
+        - "--figure"
+        - "weather"
+        - "output.3"
+    inputs:
+      - id: "steps"
+        descriptor:
+          fileFormat: "csv"
+          encoding: "utf-8"
+          notes: "Cumulative step counter"
+        source:
+          type: "step-output"
+          stepId: "split"
+          outputId: "steps"
+      - id: "activity"
+        descriptor:
+          fileFormat: "csv"
+          encoding: "utf-8"
+          notes: "Activity recognition"
+        source:
+          type: "step-output"
+          stepId: "split"
+          outputId: "activity"
+      - id: "deviceinformation"
+        descriptor:
+          fileFormat: "csv"
+          encoding: "utf-8"
+          notes: "Device reports"
+        source:
+          type: "step-output"
+          stepId: "split"
+          outputId: "deviceinformation"
+      - id: "weather"
+        descriptor:
+          fileFormat: "csv"
+          encoding: "utf-8"
+          notes: "Weather readings"
+        source:
+          type: "step-output"
+          stepId: "split"
+          outputId: "weather"
+    outputs:
+      - id: "step-cumulative-vs-delta"
+        descriptor:
+          fileFormat: "png"
+          notes: "Cumulative counter against deltas, one participant"
+      - id: "activity-types"
+        descriptor:
+          fileFormat: "png"
+          notes: "Activity types, overall and by hour"
+      - id: "devices"
+        descriptor:
+          fileFormat: "png"
+          notes: "Platform, manufacturer, hardware"
+      - id: "weather"
+        descriptor:
+          fileFormat: "png"
+          notes: "Temperature, conditions, humidity, wind"
+  - id: "figures-surveys"
+    metadata:
+      name: "Survey figures"
+      description: "Surveys, demographics, wellbeing, ratings (notebook 01, section 6)"
+      version: "1.0"
+    environmentId: "env-ubilife"
+    dependsOn:
+      - "split"
+    task:
+      type: "command"
+      id: "task-figures-surveys"
+      name: "figures-surveys"
+      executable: "python"
+      args:
+        - "scripts/ubilife/figures.py"
+        - "--survey"
+        - "input.0"
+        - "--window-from"
+        - "2025-10-13"
+        - "--window-to"
+        - "2025-10-17"
+        - "--coverage-from"
+        - "2025-10-13 08:00:00"
+        - "--coverage-to"
+        - "2025-10-17 23:59:59"
+        - "--figure"
+        - "survey_overview"
+        - "output.0"
+        - "--figure"
+        - "demographics"
+        - "output.1"
+        - "--figure"
+        - "daily_surveys"
+        - "output.2"
+        - "--figure"
+        - "who5_bfi10"
+        - "output.3"
+        - "--figure"
+        - "session_ratings"
+        - "output.4"
+    inputs:
+      - id: "survey"
+        descriptor:
+          fileFormat: "csv"
+          encoding: "utf-8"
+          notes: "Surveys, one row each, the task result as JSON"
+        source:
+          type: "step-output"
+          stepId: "split"
+          outputId: "survey"
+    outputs:
+      - id: "survey-overview"
+        descriptor:
+          fileFormat: "png"
+          notes: "Submissions against cancellations, and over time"
+      - id: "demographics"
+        descriptor:
+          fileFormat: "png"
+          notes: "Age, gender, role, prior UbiComp"
+      - id: "daily-surveys"
+        descriptor:
+          fileFormat: "png"
+          notes: "Stress, sleep quality, sleep duration"
+      - id: "who5-bfi10"
+        descriptor:
+          fileFormat: "png"
+          notes: "WHO-5 and BFI-10"
+      - id: "session-ratings"
+        descriptor:
+          fileFormat: "png"
+          notes: "Session and keynote ratings"
+  - id: "findings"
+    metadata:
+      name: "Check the findings"
+      description: "Every number the 2025 analysis reports, against the published value"
+      version: "1.0"
+    environmentId: "env-ubilife"
+    dependsOn:
+      - "read"
+      - "split"
+      - "prepare-steps"
+      - "prepare-surveys"
+    task:
+      type: "command"
+      id: "task-findings"
+      name: "findings"
+      executable: "python"
+      args:
+        - "scripts/ubilife/findings.py"
+        - "--provenance"
+        - "input.0"
+        - "--measurements"
+        - "input.1"
+        - "--steps"
+        - "input.2"
+        - "--intervals"
+        - "input.3"
+        - "--survey"
+        - "input.4"
+        - "--heartbeat"
+        - "input.5"
+        - "--deviceinformation"
+        - "input.6"
+        - "--onboarding"
+        - "input.7"
+        - "--stress"
+        - "input.8"
+        - "--sleep"
+        - "input.9"
+        - "--who5"
+        - "input.10"
+        - "--bfi10"
+        - "input.11"
+        - "--events"
+        - "input.12"
+        - "--expected"
+        - "input.13"
+        - "--from"
+        - "2025-10-13"
+        - "--to"
+        - "2025-10-17"
+        - "--coverage-from"
+        - "2025-10-13 08:00:00"
+        - "--coverage-to"
+        - "2025-10-17 23:59:59"
+        - "--output"
+        - "output.0"
+    inputs:
+      - id: "provenance"
+        descriptor:
+          fileFormat: "csv"
+          encoding: "utf-8"
+          notes: "Provenance table"
+        source:
+          type: "step-output"
+          stepId: "read"
+          outputId: "provenance"
+      - id: "measurements"
+        descriptor:
+          fileFormat: "csv"
+          encoding: "utf-8"
+          notes: "Measurement table"
+        source:
+          type: "step-output"
+          stepId: "read"
+          outputId: "measurements"
+      - id: "steps"
+        descriptor:
+          fileFormat: "csv"
+          encoding: "utf-8"
+          notes: "Cumulative step counter"
+        source:
+          type: "step-output"
+          stepId: "split"
+          outputId: "steps"
+      - id: "intervals"
+        descriptor:
+          fileFormat: "csv"
+          encoding: "utf-8"
+          notes: "Per-interval steps"
+        source:
+          type: "step-output"
+          stepId: "prepare-steps"
+          outputId: "intervals"
+      - id: "survey"
+        descriptor:
+          fileFormat: "csv"
+          encoding: "utf-8"
+          notes: "Surveys, one row each, the task result as JSON"
+        source:
+          type: "step-output"
+          stepId: "split"
+          outputId: "survey"
+      - id: "heartbeat"
+        descriptor:
+          fileFormat: "csv"
+          encoding: "utf-8"
+          notes: "Sampling heartbeat"
+        source:
+          type: "step-output"
+          stepId: "split"
+          outputId: "heartbeat"
+      - id: "deviceinformation"
+        descriptor:
+          fileFormat: "csv"
+          encoding: "utf-8"
+          notes: "Device reports"
+        source:
+          type: "step-output"
+          stepId: "split"
+          outputId: "deviceinformation"
+      - id: "onboarding"
+        descriptor:
+          fileFormat: "csv"
+          encoding: "utf-8"
+          notes: "One row per participant: age, gender, role, prior UbiComp, presenter"
+        source:
+          type: "step-output"
+          stepId: "prepare-surveys"
+          outputId: "onboarding"
+      - id: "stress"
+        descriptor:
+          fileFormat: "csv"
+          encoding: "utf-8"
+          notes: "One row per answer: stress 0-10"
+        source:
+          type: "step-output"
+          stepId: "prepare-surveys"
+          outputId: "stress"
+      - id: "sleep"
+        descriptor:
+          fileFormat: "csv"
+          encoding: "utf-8"
+          notes: "One row per answer: sleep quality and hours"
+        source:
+          type: "step-output"
+          stepId: "prepare-surveys"
+          outputId: "sleep"
+      - id: "who5"
+        descriptor:
+          fileFormat: "csv"
+          encoding: "utf-8"
+          notes: "One row per participant: WHO-5 items and score"
+        source:
+          type: "step-output"
+          stepId: "prepare-surveys"
+          outputId: "who5"
+      - id: "bfi10"
+        descriptor:
+          fileFormat: "csv"
+          encoding: "utf-8"
+          notes: "One row per participant: Big Five dimensions"
+        source:
+          type: "step-output"
+          stepId: "prepare-surveys"
+          outputId: "bfi10"
+      - id: "events"
+        descriptor:
+          fileFormat: "csv"
+          encoding: "utf-8"
+          notes: "One row per participant per session or keynote rating"
+        source:
+          type: "step-output"
+          stepId: "prepare-surveys"
+          outputId: "events"
+      - id: "expected"
+        descriptor:
+          fileFormat: "csv"
+          encoding: "utf-8"
+          notes: "The published numbers: metric, expected, source"
+        source:
+          type: "file"
+          path: "data/expected-2025.csv"
+    outputs:
+      - id: "findings"
+        descriptor:
+          fileFormat: "csv"
+          encoding: "utf-8"
+          notes: "metric, value, expected, source, match"

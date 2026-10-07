@@ -33,3 +33,10 @@ data/
 # OS
 .DS_Store
 Thumbs.db
+
+# Seeds built from study exports by demo-bundles/tools/ubilife
+demo-bundles/tools/ubilife/test-db/
+# A 2025 copy of the UbiLife workflow, for local testing
+demo-bundles/tools/ubilife/ubilife-2025/
+demo-bundles/ubilife-compare-live/data/2025/
+demo-bundles/ubilife-compare-live.zip

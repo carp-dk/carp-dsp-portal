@@ -37,5 +37,20 @@ services:
       # and set DSP_REPO: "/repo" above.
     restart: unless-stopped
 
+  # Optional: a local stand-in for the CARP database, seeded from study exports,
+  # for testing the UbiLife workflow without production access. Started only with
+  # `docker compose --profile test-db up -d`; see demo-bundles/tools/ubilife/.
+  # The portal reaches it as jdbc:postgresql://test-db:5432/carp (user and
+  # password carp), set on the Settings page.
+  test-db:
+    image: postgres:16
+    profiles: ["test-db"]
+    environment:
+      POSTGRES_DB: carp
+      POSTGRES_USER: carp
+      POSTGRES_PASSWORD: carp
+    volumes:
+      - ./demo-bundles/tools/ubilife/test-db:/docker-entrypoint-initdb.d:ro
+
 volumes:
   portal-state:

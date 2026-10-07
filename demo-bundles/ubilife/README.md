@@ -1,37 +1,41 @@
-# UbiLife 2025 replication
+# UbiLife
 
-Reproduces the analysis of the UbiLife 2025 study
-([dtu-digital-health/UbiLife](https://github.com/dtu-digital-health/UbiLife))
-from its published export on Zenodo
-([19220274](https://doi.org/10.5281/zenodo.19220274), CC BY 4.0).
+The UbiLife analysis
+([dtu-digital-health/UbiLife](https://github.com/dtu-digital-health/UbiLife)),
+read from the CARP database. One workflow for every year: the study id and the
+dates are its arguments. As written it reads UbiLife 2026.
 
-Drop this folder, or a zip of it, on the Upload page. A run takes about 90
-seconds once its environments are built.
+The same analysis from the published 2025 export, checked against last year's
+numbers, is in `../ubilife-zenodo/`.
+
+## Arguments
+
+| | 2026 (as written) | 2025 |
+|---|---|---|
+| `query`: `studyId` | `ba1834de-8caf-4e0e-9ec3-8db05285777f` | `b3607581-56c6-4652-a4f6-8e86e5a4e7e5` |
+| `query`: `--from` / `--to` (arrival) | 1 Oct - 1 Nov 2026 | 1 Oct 2025 - 16 Jan 2026 |
+| analysis window (`--from` / `--to`, `--window-*`) | 11 - 16 Oct 2026 | 13 - 17 Oct 2025 |
+| heartbeat coverage (`--coverage-*`) | 11 Oct 00:00 - 15 Oct 23:59 | 13 Oct 08:00 - 17 Oct 23:59 |
+
+Dates show up on the workflow's Time tab, so a schedule can move them.
+
+## Before it runs
+
+- The connection on the Settings page: `CARP_DSP_SQL_URL`, `_USER`, `_PASSWORD`.
+- `JAVA_TOOL_OPTIONS` = `-Xmx4g` on the Settings page. The decoder holds the
+  study in memory, about 3 GB for a million measurements.
+
+Without production access, test against a local database: `../tools/ubilife/`.
 
 ## Steps
 
-| Step | Does | Notebook |
-|---|---|---|
-| fetch | Downloads the export (library step `core.io.fetch-zenodo`) | - |
-| read | `data-streams.json` to the measurement and provenance tables, the same two the SQL decoder writes | - |
-| split | One table per stream, with participant and timestamp | - |
-| prepare-steps | Conference week, cumulative counter to per-interval steps | 02, sections 1-2 |
-| prepare-surveys | Submitted surveys to six tables | 02, section 3 |
-| figures-overview, -sensors, -surveys | The 14 figures | 01 |
-| findings | Every number the analysis reports, against the published value | 01 and 02 |
+query → decode → split → prepare steps and surveys → three figure steps →
+findings. From split onwards it is the same code as the Zenodo bundle.
 
-`findings.csv` should show 54 of 54 matching.
-
-## Where the code comes from
-
-`surveys.py` and `plots.py` are the UbiLife repo's own (MIT), with the changes
-listed at the top of each file. The rest is new: reading the export, splitting
-streams, and the step entry points.
-
-One change was forced: the BFI-10 boxplot passed `labels=`, which matplotlib
-3.11 removed. Last year's code no longer runs on a fresh environment.
-
-## Notes
-
-- Times are UTC, as in the notebooks.
-- `findings` reads `data/expected-2025.csv`; each expected value names its source.
+- `split` reads 2025's `stepcount` and 2026's `stepevent` as the same steps.
+- Survey answers are grouped by value and labelled in English. Their text is in
+  the participant's language.
+- Session ratings leave out "I did not attend", and show all five ratings. Last
+  year's figure dropped "Very Boring" and "Amazing".
+- Health data is not read: 2026 collects 30 days back, and the analysis does not
+  use it.

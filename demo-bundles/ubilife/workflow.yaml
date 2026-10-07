@@ -1,17 +1,18 @@
 schemaVersion: "1.0"
 metadata:
-  id: "ubilife-2025-replication"
-  name: "UbiLife 2025 replication"
+  id: "ubilife"
+  name: "UbiLife"
   description: >-
-    Reproduces the UbiLife 2025 analysis (github.com/dtu-digital-health/UbiLife)
-    from the published export: the prepared tables of notebook 02, the 14 figures
-    of notebook 01, and a check of every number it reports.
+    The UbiLife analysis (github.com/dtu-digital-health/UbiLife), read from the
+    CARP database: the prepared tables, the 14 exploration figures and the
+    numbers it reports. One workflow for every year; the study id and the dates
+    are its arguments. As written it reads UbiLife 2026.
   version: "1.0"
   tags:
     - "ubilife"
     - "ubicomp"
     - "carp"
-    - "replication"
+    - "sql"
     - "surveys"
     - "steps"
 environments:
@@ -28,61 +29,42 @@ environments:
       pythonVersion:
         - "3.12"
 steps:
-  # The published export. The library step declares its output as CSV whatever
-  # it fetches, so the next step declares no format for it.
-  - id: "fetch"
-    uses: "core.io.fetch-zenodo"
+  # The study and the arrival window. For 2025: studyId=b3607581-56c6-4652-a4f6-8e86e5a4e7e5,
+  # --from 2025-10-01, --to 2026-01-16 (the published export's cut), and 13-17 Oct 2025
+  # in the steps below. See README.md.
+  - id: "query"
+    uses: "core.io.query-sql"
     metadata:
-      name: "Fetch the UbiLife 2025 export"
-      description: "The published study export, Zenodo record 19220274 (CC BY 4.0)"
+      name: "Read the study from CARP"
+      description: "Every stored sequence of the study, by arrival time"
       version: "1.0"
     dependsOn: []
-    args:
-      - "--url"
-      - "https://zenodo.org/records/19220274/files/2026-01-15_15-07-44_study-data_ubilife-ubicomp-2025.zip?download=1"
-      - "--member"
-      - "2026-01-15_15-07-44_study-data_ubilife-ubicomp-2025/data-streams.json"
-  - id: "read"
-    metadata:
-      name: "Read the study export"
-      description: "data-streams.json to the measurement and provenance tables the SQL decoder writes"
-      version: "1.0"
-    environmentId: "env-ubilife"
-    dependsOn:
-      - "fetch"
-    task:
-      type: "command"
-      id: "task-read"
-      name: "read"
-      executable: "python"
-      args:
-        - "scripts/ubilife/read_export.py"
-        - "--input"
-        - "input.0"
-        - "--measurements"
-        - "output.0"
-        - "--provenance"
-        - "output.1"
     inputs:
-      - id: "export"
-        descriptor:
-          encoding: "utf-8"
-          notes: "The export's data-streams.json"
+      - id: "query"
+        source:
+          type: "file"
+          path: "data/study-data.sql"
+    args:
+      - "--param"
+      - "studyId=ba1834de-8caf-4e0e-9ec3-8db05285777f"
+      - "--from"
+      - "2026-10-01T00:00:00.000+00"
+      - "--to"
+      - "2026-11-01T00:00:00.000+00"
+  - id: "decode"
+    uses: "core.io.decode-carp-data-streams"
+    metadata:
+      name: "Decode the data streams"
+      description: "Stored sequences to the measurement and provenance tables"
+      version: "1.0"
+    dependsOn:
+      - "query"
+    inputs:
+      - id: "rows"
         source:
           type: "step-output"
-          stepId: "fetch"
-          outputId: "file"
-    outputs:
-      - id: "measurements"
-        descriptor:
-          fileFormat: "csv"
-          encoding: "utf-8"
-          notes: "One row per measurement; a <type>.<field> column per data field"
-      - id: "provenance"
-        descriptor:
-          fileFormat: "csv"
-          encoding: "utf-8"
-          notes: "Deployment, device role and data type per row_id"
+          stepId: "query"
+          outputId: "rows"
   - id: "split"
     metadata:
       name: "Split into streams"
@@ -90,7 +72,7 @@ steps:
       version: "1.0"
     environmentId: "env-ubilife"
     dependsOn:
-      - "read"
+      - "decode"
     task:
       type: "command"
       id: "task-split"
@@ -103,7 +85,7 @@ steps:
         - "--provenance"
         - "input.1"
         - "--stream"
-        - "stepcount"
+        - "stepcount,stepevent"
         - "output.0"
         - "--stream"
         - "location"
@@ -131,7 +113,7 @@ steps:
           notes: "Measurement table"
         source:
           type: "step-output"
-          stepId: "read"
+          stepId: "decode"
           outputId: "measurements"
       - id: "provenance"
         descriptor:
@@ -140,14 +122,14 @@ steps:
           notes: "Provenance table"
         source:
           type: "step-output"
-          stepId: "read"
+          stepId: "decode"
           outputId: "provenance"
     outputs:
       - id: "steps"
         descriptor:
           fileFormat: "csv"
           encoding: "utf-8"
-          notes: "Cumulative step counter"
+          notes: "Step counter: stepcount (2025) or stepevent (2026)"
       - id: "location"
         descriptor:
           fileFormat: "csv"
@@ -181,7 +163,7 @@ steps:
   - id: "prepare-steps"
     metadata:
       name: "Prepare step counts"
-      description: "Conference week (13-16 Oct), counter to per-interval steps (notebook 02)"
+      description: "Conference window, counter to per-interval steps"
       version: "1.0"
     environmentId: "env-ubilife"
     dependsOn:
@@ -196,9 +178,9 @@ steps:
         - "--steps"
         - "input.0"
         - "--from"
-        - "2025-10-13"
+        - "2026-10-11"
         - "--to"
-        - "2025-10-17"
+        - "2026-10-16"
         - "--intervals"
         - "output.0"
         - "--daily"
@@ -208,7 +190,7 @@ steps:
         descriptor:
           fileFormat: "csv"
           encoding: "utf-8"
-          notes: "Cumulative step counter"
+          notes: "Step counter: stepcount (2025) or stepevent (2026)"
         source:
           type: "step-output"
           stepId: "split"
@@ -227,7 +209,7 @@ steps:
   - id: "prepare-surveys"
     metadata:
       name: "Parse surveys"
-      description: "Submitted surveys to one table per instrument (notebook 02)"
+      description: "Submitted surveys to one table per instrument"
       version: "1.0"
     environmentId: "env-ubilife"
     dependsOn:
@@ -297,11 +279,11 @@ steps:
   - id: "figures-overview"
     metadata:
       name: "Coverage figures"
-      description: "What was collected, when, and from whom (notebook 01, sections 1-3 and 8)"
+      description: "What was collected, when, and from whom"
       version: "1.0"
     environmentId: "env-ubilife"
     dependsOn:
-      - "read"
+      - "decode"
       - "split"
     task:
       type: "command"
@@ -323,13 +305,13 @@ steps:
         - "--heartbeat"
         - "input.5"
         - "--window-from"
-        - "2025-10-13"
+        - "2026-10-11"
         - "--window-to"
-        - "2025-10-17"
+        - "2026-10-16"
         - "--coverage-from"
-        - "2025-10-13 08:00:00"
+        - "2026-10-11 00:00:00"
         - "--coverage-to"
-        - "2025-10-17 23:59:59"
+        - "2026-10-15 23:59:59"
         - "--figure"
         - "stream_overview"
         - "output.0"
@@ -353,13 +335,13 @@ steps:
           notes: "Provenance table"
         source:
           type: "step-output"
-          stepId: "read"
+          stepId: "decode"
           outputId: "provenance"
       - id: "steps"
         descriptor:
           fileFormat: "csv"
           encoding: "utf-8"
-          notes: "Cumulative step counter"
+          notes: "Step counter: stepcount (2025) or stepevent (2026)"
         source:
           type: "step-output"
           stepId: "split"
@@ -420,11 +402,11 @@ steps:
       - id: "heartbeat-coverage"
         descriptor:
           fileFormat: "png"
-          notes: "Heartbeat coverage, 4-hour bins, conference period"
+          notes: "Heartbeat coverage, 4-hour bins, conference window"
   - id: "figures-sensors"
     metadata:
       name: "Sensor figures"
-      description: "Steps, activity, devices and weather (notebook 01, sections 4, 5 and 7)"
+      description: "Steps, activity, devices and weather"
       version: "1.0"
     environmentId: "env-ubilife"
     dependsOn:
@@ -445,13 +427,13 @@ steps:
         - "--weather"
         - "input.3"
         - "--window-from"
-        - "2025-10-13"
+        - "2026-10-11"
         - "--window-to"
-        - "2025-10-17"
+        - "2026-10-16"
         - "--coverage-from"
-        - "2025-10-13 08:00:00"
+        - "2026-10-11 00:00:00"
         - "--coverage-to"
-        - "2025-10-17 23:59:59"
+        - "2026-10-15 23:59:59"
         - "--figure"
         - "step_cumulative_vs_delta"
         - "output.0"
@@ -469,7 +451,7 @@ steps:
         descriptor:
           fileFormat: "csv"
           encoding: "utf-8"
-          notes: "Cumulative step counter"
+          notes: "Step counter: stepcount (2025) or stepevent (2026)"
         source:
           type: "step-output"
           stepId: "split"
@@ -521,7 +503,7 @@ steps:
   - id: "figures-surveys"
     metadata:
       name: "Survey figures"
-      description: "Surveys, demographics, wellbeing, ratings (notebook 01, section 6)"
+      description: "Surveys, demographics, wellbeing, ratings"
       version: "1.0"
     environmentId: "env-ubilife"
     dependsOn:
@@ -536,13 +518,13 @@ steps:
         - "--survey"
         - "input.0"
         - "--window-from"
-        - "2025-10-13"
+        - "2026-10-11"
         - "--window-to"
-        - "2025-10-17"
+        - "2026-10-16"
         - "--coverage-from"
-        - "2025-10-13 08:00:00"
+        - "2026-10-11 00:00:00"
         - "--coverage-to"
-        - "2025-10-17 23:59:59"
+        - "2026-10-15 23:59:59"
         - "--figure"
         - "survey_overview"
         - "output.0"
@@ -591,12 +573,12 @@ steps:
           notes: "Session and keynote ratings"
   - id: "findings"
     metadata:
-      name: "Check the findings"
-      description: "Every number the 2025 analysis reports, against the published value"
+      name: "Summarise the findings"
+      description: "The numbers the UbiLife analysis reports, for this study"
       version: "1.0"
     environmentId: "env-ubilife"
     dependsOn:
-      - "read"
+      - "decode"
       - "split"
       - "prepare-steps"
       - "prepare-surveys"
@@ -633,16 +615,14 @@ steps:
         - "input.11"
         - "--events"
         - "input.12"
-        - "--expected"
-        - "input.13"
         - "--from"
-        - "2025-10-13"
+        - "2026-10-11"
         - "--to"
-        - "2025-10-17"
+        - "2026-10-16"
         - "--coverage-from"
-        - "2025-10-13 08:00:00"
+        - "2026-10-11 00:00:00"
         - "--coverage-to"
-        - "2025-10-17 23:59:59"
+        - "2026-10-15 23:59:59"
         - "--output"
         - "output.0"
     inputs:
@@ -653,7 +633,7 @@ steps:
           notes: "Provenance table"
         source:
           type: "step-output"
-          stepId: "read"
+          stepId: "decode"
           outputId: "provenance"
       - id: "measurements"
         descriptor:
@@ -662,13 +642,13 @@ steps:
           notes: "Measurement table"
         source:
           type: "step-output"
-          stepId: "read"
+          stepId: "decode"
           outputId: "measurements"
       - id: "steps"
         descriptor:
           fileFormat: "csv"
           encoding: "utf-8"
-          notes: "Cumulative step counter"
+          notes: "Step counter: stepcount (2025) or stepevent (2026)"
         source:
           type: "step-output"
           stepId: "split"
@@ -763,17 +743,9 @@ steps:
           type: "step-output"
           stepId: "prepare-surveys"
           outputId: "events"
-      - id: "expected"
-        descriptor:
-          fileFormat: "csv"
-          encoding: "utf-8"
-          notes: "The published numbers: metric, expected, source"
-        source:
-          type: "file"
-          path: "data/expected-2025.csv"
     outputs:
       - id: "findings"
         descriptor:
           fileFormat: "csv"
           encoding: "utf-8"
-          notes: "metric, value, expected, source, match"
+          notes: "metric, value"

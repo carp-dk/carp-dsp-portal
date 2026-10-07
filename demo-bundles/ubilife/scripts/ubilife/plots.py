@@ -3,7 +3,8 @@
 From the UbiLife analysis (github.com/dtu-digital-health/UbiLife,
 src/visualisation/plots.py, MIT licence). Changes: figures are saved to a given
 path and closed rather than shown, the conference window is a parameter rather
-than 13-17 Oct 2025, and the BFI-10 boxplot uses matplotlib 3.9's `tick_labels`.
+than 13-17 Oct 2025, the BFI-10 boxplot uses matplotlib 3.9's `tick_labels`, and the session
+ratings are ordered by the labels the answers carry.
 """
 
 import matplotlib
@@ -183,7 +184,9 @@ def plot_session_ratings(session_ratings, path):
         print("No session rating data found")
         return
     sr_df = pd.DataFrame(session_ratings)
-    rating_order = ["Boring", "Slightly Boring", "Neutral", "Interesting", "Very Interesting"]
+    # The original ordered by "Slightly Boring" and "Very Interesting", which no
+    # answer carries, so "Very Boring" and "Amazing" fell out of the figure.
+    rating_order = ["Very Boring", "Boring", "Neutral", "Interesting", "Amazing"]
     ct = pd.crosstab(sr_df["session"], sr_df["rating"]).reindex(columns=rating_order, fill_value=0)
     fig, ax = plt.subplots(figsize=(12, 5))
     ct.plot.barh(stacked=True, ax=ax)
