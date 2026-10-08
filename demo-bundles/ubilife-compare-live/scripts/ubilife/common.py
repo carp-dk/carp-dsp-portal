@@ -5,7 +5,13 @@ import pandas as pd
 
 def load_stream(path, columns=None):
     """Reads a stream table from split_streams.py, with `timestamp` as datetime (UTC, naive)."""
-    df = pd.read_csv(path, dtype=str, keep_default_na=False, usecols=columns)
+    df = pd.read_csv(path, dtype=str, keep_default_na=False)
+    # A stream with no rows yet has only its fixed columns; the rest are empty, not missing.
+    for column in columns or []:
+        if column not in df.columns:
+            df[column] = pd.Series(dtype=str)
+    if columns:
+        df = df[columns]
     df["timestamp"] = pd.to_datetime(pd.to_numeric(df["timestamp"], errors="coerce"), unit="us")
     return df
 

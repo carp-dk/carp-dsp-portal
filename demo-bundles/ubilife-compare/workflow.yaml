@@ -32,9 +32,10 @@ steps:
     uses: "core.io.query-sql"
     metadata:
       name: "Read UbiLife 2025"
-      description: "Every stored sequence of the study, by arrival time"
+      description: "Every stored sequence of the study, by arrival time. Fixed, so read once and reused"
       version: "1.0"
     dependsOn: []
+    cache: true
     inputs:
       - id: "query"
         source:

@@ -138,6 +138,8 @@ data class StepRunDetail(
     val output: ResourceRef? = null,
     /** What the client fetches. Null when the step printed nothing. */
     val outputUrl: String? = null,
+    /** The step did not run: its outputs came from an earlier run of the same step on the same inputs. */
+    val reused: Boolean = false,
 )
 
 /**

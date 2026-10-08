@@ -11,6 +11,7 @@ import ResultSets from './pages/ResultSets';
 import RunView from './pages/RunView';
 import Runs from './pages/Runs';
 import Settings from './pages/Settings';
+import UbiLifeDashboard from './pages/UbiLifeDashboard';
 import Upload from './pages/Upload';
 import WorkflowDetail from './pages/WorkflowDetail';
 import Workflows from './pages/Workflows';
@@ -34,6 +35,7 @@ const App = () => (
         <Route path="/library/:stepId" element={<LibraryStep />} />
         <Route path="/upload" element={<Upload />} />
         <Route path="/settings" element={<Settings />} />
+        <Route path="/ubilife" element={<UbiLifeDashboard />} />
         <Route path="/runs" element={<Runs />} />
         <Route path="/results" element={<ResultSets />} />
         <Route path="/runs/:runId" element={<RunView />} />

@@ -69,6 +69,10 @@ def survey_type(result_json: str):
 def load_surveys(path) -> pd.DataFrame:
     """Every survey in the stream table, submitted or not, with its type and answers."""
     df = pd.read_csv(path, dtype=str, keep_default_na=False)
+    # No surveys yet: the table has only its fixed columns.
+    for column in ("result", "status"):
+        if column not in df.columns:
+            df[column] = pd.Series(dtype=str)
     df["timestamp"] = pd.to_datetime(pd.to_numeric(df["timestamp"], errors="coerce"), unit="us")
     df["date"] = df["timestamp"].dt.date
     df["survey_type"] = df["result"].map(survey_type)

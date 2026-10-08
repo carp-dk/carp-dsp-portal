@@ -22,7 +22,7 @@ import io
 import json
 import sys
 from collections import defaultdict
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from pathlib import Path
 
 import ijson
@@ -33,6 +33,9 @@ from read_export import open_export  # noqa: E402
 import make_2026  # noqa: E402
 
 SEQUENCE_LIMIT = 500
+# The first conference day of each year (the Sunday before is workshops).
+DAY_ONE_2025 = date(2025, 10, 13)
+DAY_ONE_2026 = date(2026, 10, 12)
 
 SCHEMA = """
 CREATE TABLE recruitment_participant_groups (
@@ -63,11 +66,11 @@ CREATE INDEX ON recruitment_participant_groups (study_id);
 """
 
 
-def records(path, reshape, steps_factor=1.0, stress_offset=0.0):
+def records(path, reshape, steps_factor=1.0, stress_offset=0.0, offset_us=make_2026.OFFSET_US):
     with open_export(path) as stream:
         for record in ijson.items(stream, "item", use_float=True):
             if reshape:
-                record = make_2026.convert(record, steps_factor, stress_offset)
+                record = make_2026.convert(record, steps_factor, stress_offset, offset_us)
                 if record is None:
                     continue
             yield record
@@ -101,13 +104,17 @@ def main():
     ap.add_argument("--study-2026", nargs=2, action="append", default=[], metavar=("STUDY_ID", "EXPORT"))
     ap.add_argument("--steps-factor", type=float, default=1.0, help="scales the reshaped studies' steps")
     ap.add_argument("--stress-offset", type=float, default=0.0, help="moves the reshaped studies' stress answers")
+    ap.add_argument("--day-one", type=date.fromisoformat, default=DAY_ONE_2026,
+                    help="the date 13 Oct 2025 moves to in the reshaped studies (default 2026-10-12, the real Monday). "
+                         "Yesterday replays the conference from its second day, arriving in real time")
     args = ap.parse_args()
+    offset_us = (args.day_one - DAY_ONE_2025).days * 24 * 3600 * 1_000_000
 
     streams = defaultdict(list)       # (deployment, role, namespace, name) -> items
     groups = set()                    # (study, deployment)
     for study_id, path, reshape in ([(s, p, False) for s, p in args.study]
                                     + [(s, p, True) for s, p in args.study_2026]):
-        for record in records(path, reshape, args.steps_factor, args.stress_offset):
+        for record in records(path, reshape, args.steps_factor, args.stress_offset, offset_us):
             data_type = record["dataStream"]["dataType"]
             key = (record["studyDeploymentId"], record["deviceRoleName"],
                    data_type["namespace"], data_type["name"])

@@ -47,7 +47,7 @@ def shift_stress(result, offset):
         answers["answer"] = min(10, max(0, answers["answer"] + offset))
 
 
-def convert(record, steps_factor, stress_offset):
+def convert(record, steps_factor, stress_offset, offset_us=OFFSET_US):
     """The record as 2026 would have sent it, or None when 2026 would not have."""
     stream = record["dataStream"]
     data_type = stream["dataType"]
@@ -83,7 +83,7 @@ def convert(record, steps_factor, stress_offset):
     measurement = record["measurement"]
     for key in ("sensorStartTime", "sensorEndTime"):
         if measurement.get(key) is not None:
-            measurement[key] = int(measurement[key]) + OFFSET_US
+            measurement[key] = int(measurement[key]) + offset_us
     return record
 
 

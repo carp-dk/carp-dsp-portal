@@ -346,7 +346,7 @@ const StepOutput = ({ step }: { step: StepRunResult }) => {
 
   if (!step.detail) return null;
 
-  const { command, exitCode } = step.detail;
+  const { command, exitCode, reused } = step.detail;
 
   return (
     <Box sx={{ mt: 1 }}>
@@ -358,10 +358,17 @@ const StepOutput = ({ step }: { step: StepRunResult }) => {
         >
           {url ? (open ? 'Hide output' : 'Show output') : 'No output'}
         </Button>
-        {exitCode !== null && exitCode !== undefined && (
+        {reused ? (
           <Typography variant="h6" color="text.secondary">
-            exit {exitCode}
+            reused from an earlier run
           </Typography>
+        ) : (
+          exitCode !== null &&
+          exitCode !== undefined && (
+            <Typography variant="h6" color="text.secondary">
+              exit {exitCode}
+            </Typography>
+          )
         )}
       </Stack>
 

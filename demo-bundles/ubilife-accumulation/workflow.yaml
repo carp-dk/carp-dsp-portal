@@ -1,0 +1,335 @@
+schemaVersion: "1.0"
+metadata:
+  id: "ubilife-accumulation"
+  name: "UbiLife data so far"
+  description: >-
+    How the UbiLife data piled up over the conference week: participants,
+    records and survey answers, 2026 up to now against 2025 over the same week.
+    2025 is read once and reused; each run reads only the 2026 data that arrived
+    since the last. A schedule moves the end of the 2026 read and --b-until to each run's time.
+  version: "1.0"
+  tags:
+    - "ubilife"
+    - "ubicomp"
+    - "carp"
+    - "sql"
+    - "live"
+environments:
+  env-ubilife:
+    name: "UbiLife analysis"
+    kind: "pixi"
+    spec:
+      dependencies:
+        - "pypi:pandas"
+        - "pypi:numpy"
+        - "pypi:matplotlib>=3.9"
+        - "pypi:scipy"
+        - "pypi:ijson"
+      pythonVersion:
+        - "3.12"
+steps:
+  - id: "query-2025"
+    uses: "core.io.query-sql"
+    metadata:
+      name: "Read UbiLife 2025"
+      description: "Every stored sequence of the study, by arrival time. Fixed, so read once and reused"
+      version: "1.0"
+    dependsOn: []
+    cache: true
+    inputs:
+      - id: "query"
+        source:
+          type: "file"
+          path: "data/study-data.sql"
+    args:
+      - "--param"
+      - "studyId=b3607581-56c6-4652-a4f6-8e86e5a4e7e5"
+      - "--from"
+      - "2025-10-01T00:00:00.000+00"
+      - "--to"
+      - "2026-01-16T00:00:00.000+00"
+  - id: "decode-2025"
+    uses: "core.io.decode-carp-data-streams"
+    metadata:
+      name: "Decode 2025"
+      description: "Stored sequences to the measurement and provenance tables"
+      version: "1.0"
+    dependsOn:
+      - "query-2025"
+    inputs:
+      - id: "rows"
+        source:
+          type: "step-output"
+          stepId: "query-2025"
+          outputId: "rows"
+  - id: "split-2025"
+    metadata:
+      name: "Split 2025"
+      description: "Steps, surveys and activity, with participant and timestamp"
+      version: "1.0"
+    environmentId: "env-ubilife"
+    dependsOn:
+      - "decode-2025"
+    task:
+      type: "command"
+      id: "task-split-2025"
+      name: "split-2025"
+      executable: "python"
+      args:
+        - "scripts/ubilife/split_streams.py"
+        - "--measurements"
+        - "input.0"
+        - "--provenance"
+        - "input.1"
+        - "--stream"
+        - "stepcount,stepevent"
+        - "output.0"
+        - "--stream"
+        - "survey"
+        - "output.1"
+        - "--stream"
+        - "activity"
+        - "output.2"
+    inputs:
+      - id: "measurements"
+        descriptor:
+          fileFormat: "csv"
+          encoding: "utf-8"
+          notes: "Measurement table"
+        source:
+          type: "step-output"
+          stepId: "decode-2025"
+          outputId: "measurements"
+      - id: "provenance"
+        descriptor:
+          fileFormat: "csv"
+          encoding: "utf-8"
+          notes: "Provenance table"
+        source:
+          type: "step-output"
+          stepId: "decode-2025"
+          outputId: "provenance"
+    outputs:
+      - id: "steps"
+        descriptor:
+          fileFormat: "csv"
+          encoding: "utf-8"
+          notes: "Step counter"
+      - id: "survey"
+        descriptor:
+          fileFormat: "csv"
+          encoding: "utf-8"
+          notes: "Surveys"
+      - id: "activity"
+        descriptor:
+          fileFormat: "csv"
+          encoding: "utf-8"
+          notes: "Activity recognition"
+  - id: "query-2026"
+    uses: "core.io.query-sql"
+    metadata:
+      name: "Read UbiLife 2026"
+      description: "Steps, surveys and activity that arrived since the last run, added to what earlier runs read"
+      version: "1.0"
+    dependsOn: []
+    inputs:
+      - id: "query"
+        source:
+          type: "file"
+          path: "data/live-data.sql"
+    args:
+      - "--param"
+      - "studyId=ba1834de-8caf-4e0e-9ec3-8db05285777f"
+      - "--from"
+      - "2026-10-01T00:00:00Z"
+      - "--to"
+      - "2026-10-16T00:00:00Z"
+      - "--incremental"
+  - id: "decode-2026"
+    uses: "core.io.decode-carp-data-streams"
+    metadata:
+      name: "Decode 2026"
+      description: "Stored sequences to the measurement and provenance tables"
+      version: "1.0"
+    dependsOn:
+      - "query-2026"
+    inputs:
+      - id: "rows"
+        source:
+          type: "step-output"
+          stepId: "query-2026"
+          outputId: "rows"
+  - id: "split-2026"
+    metadata:
+      name: "Split 2026"
+      description: "Steps, surveys and activity, with participant and timestamp"
+      version: "1.0"
+    environmentId: "env-ubilife"
+    dependsOn:
+      - "decode-2026"
+    task:
+      type: "command"
+      id: "task-split-2026"
+      name: "split-2026"
+      executable: "python"
+      args:
+        - "scripts/ubilife/split_streams.py"
+        - "--measurements"
+        - "input.0"
+        - "--provenance"
+        - "input.1"
+        - "--stream"
+        - "stepcount,stepevent"
+        - "output.0"
+        - "--stream"
+        - "survey"
+        - "output.1"
+        - "--stream"
+        - "activity"
+        - "output.2"
+    inputs:
+      - id: "measurements"
+        descriptor:
+          fileFormat: "csv"
+          encoding: "utf-8"
+          notes: "Measurement table"
+        source:
+          type: "step-output"
+          stepId: "decode-2026"
+          outputId: "measurements"
+      - id: "provenance"
+        descriptor:
+          fileFormat: "csv"
+          encoding: "utf-8"
+          notes: "Provenance table"
+        source:
+          type: "step-output"
+          stepId: "decode-2026"
+          outputId: "provenance"
+    outputs:
+      - id: "steps"
+        descriptor:
+          fileFormat: "csv"
+          encoding: "utf-8"
+          notes: "Step counter"
+      - id: "survey"
+        descriptor:
+          fileFormat: "csv"
+          encoding: "utf-8"
+          notes: "Surveys"
+      - id: "activity"
+        descriptor:
+          fileFormat: "csv"
+          encoding: "utf-8"
+          notes: "Activity recognition"
+  - id: "accumulate"
+    metadata:
+      name: "Data so far"
+      description: "Running totals hour by hour, 2026 up to now against the same week of 2025"
+      version: "1.0"
+    environmentId: "env-ubilife"
+    dependsOn:
+      - "split-2025"
+      - "split-2026"
+    task:
+      type: "command"
+      id: "task-accumulate"
+      name: "accumulate"
+      executable: "python"
+      args:
+        - "scripts/accumulate/accumulate.py"
+        - "--a-steps"
+        - "input.0"
+        - "--a-survey"
+        - "input.1"
+        - "--a-activity"
+        - "input.2"
+        - "--a-from"
+        - "2025-10-12"
+        - "--a-to"
+        - "2025-10-17"
+        - "--a-label"
+        - "2025"
+        - "--b-steps"
+        - "input.3"
+        - "--b-survey"
+        - "input.4"
+        - "--b-activity"
+        - "input.5"
+        - "--b-from"
+        - "2026-10-11"
+        - "--b-to"
+        - "2026-10-16"
+        - "--b-label"
+        - "2026"
+        - "--b-until"
+        - "2026-10-16T00:00:00Z"
+        - "--output"
+        - "output.0"
+        - "--figure"
+        - "output.1"
+    inputs:
+      - id: "steps-2025"
+        descriptor:
+          fileFormat: "csv"
+          encoding: "utf-8"
+          notes: "Step counter, 2025"
+        source:
+          type: "step-output"
+          stepId: "split-2025"
+          outputId: "steps"
+      - id: "survey-2025"
+        descriptor:
+          fileFormat: "csv"
+          encoding: "utf-8"
+          notes: "Surveys, 2025"
+        source:
+          type: "step-output"
+          stepId: "split-2025"
+          outputId: "survey"
+      - id: "activity-2025"
+        descriptor:
+          fileFormat: "csv"
+          encoding: "utf-8"
+          notes: "Activity recognition, 2025"
+        source:
+          type: "step-output"
+          stepId: "split-2025"
+          outputId: "activity"
+      - id: "steps-2026"
+        descriptor:
+          fileFormat: "csv"
+          encoding: "utf-8"
+          notes: "Step counter, 2026"
+        source:
+          type: "step-output"
+          stepId: "split-2026"
+          outputId: "steps"
+      - id: "survey-2026"
+        descriptor:
+          fileFormat: "csv"
+          encoding: "utf-8"
+          notes: "Surveys, 2026"
+        source:
+          type: "step-output"
+          stepId: "split-2026"
+          outputId: "survey"
+      - id: "activity-2026"
+        descriptor:
+          fileFormat: "csv"
+          encoding: "utf-8"
+          notes: "Activity recognition, 2026"
+        source:
+          type: "step-output"
+          stepId: "split-2026"
+          outputId: "activity"
+    outputs:
+      - id: "totals"
+        descriptor:
+          fileFormat: "csv"
+          encoding: "utf-8"
+          notes: "measure, year, time, hour, count: the running total each hour"
+      - id: "accumulation-figure"
+        descriptor:
+          fileFormat: "png"
+          notes: "One chart per measure: 2025 dashed over the week, 2026 solid up to now"

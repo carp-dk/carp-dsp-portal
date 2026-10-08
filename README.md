@@ -62,6 +62,10 @@ server and run something before believing a dependency change.
 | `DSP_RUNS` | `data/runs` | Where real runs write their workspace and artefacts |
 | `DSP_RUN_CONCURRENCY` | `1` | Workflows at once. One workflow can occupy the machine |
 | `DSP_STATE` | `data/portal-state.json` | Session state: uploads, composed workflows, run history |
+| `DSP_CACHE` | beside `DSP_STATE` | Step cache: a step that already ran on the same inputs is reused, not run. Keep it on the same volume as `DSP_RUNS`, so a reused output is a hard link |
+| `DSP_CACHE_MAX_GB` | `10` | The cache is trimmed to this, least recently used first |
+| `DSP_KEEP_SCHEDULED_RUNS` | `24` | Finished runs a schedule keeps; older ones are deleted. Runs started by hand are kept |
+| `CARP_DSP_QUERY_STORE` | beside `DSP_CACHE` | What `core.io.query-sql --incremental` keeps between runs. Clear it after replacing the database |
 
 Steps get the server's environment, plus anything saved on the **Settings**
 page. Saved values apply from the next run, with no rebuild or restart, so a

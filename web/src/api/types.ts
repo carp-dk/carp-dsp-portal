@@ -82,6 +82,8 @@ export interface StepRunDetail {
   exitCode?: number | null;
   /** Fetch as text. Null when the step printed nothing. */
   outputUrl?: string | null;
+  /** The step did not run: its outputs came from an earlier run of the same step on the same inputs. */
+  reused?: boolean;
 }
 
 export interface ProducedOutputRef {

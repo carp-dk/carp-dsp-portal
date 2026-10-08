@@ -44,6 +44,7 @@ are those given before it ends.
 ## Notes
 
 - Needs `CARP_DSP_SQL_*` and `JAVA_TOOL_OPTIONS=-Xmx4g`, as the UbiLife workflow does.
+- The 2025 read says `cache: true`, so 2025 is read once and its steps reused after that.
 - The scripts other than `compare.py` are copies of the UbiLife bundle's. Keep them in step.
 - To check it locally, see `../tools/ubilife/README.md`.
 - `ubilife-compare-live` is the same comparison on 2026 so far, for the booth.

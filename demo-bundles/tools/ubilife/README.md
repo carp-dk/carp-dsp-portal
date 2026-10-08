@@ -7,7 +7,6 @@ production. These make a local stand-in from study exports.
 |---|---|
 | `make_2026.py` | A 2025 export as the 2026 study would have sent it: dates +364 days, new deployment ids, `Smartphone`, `stepevent`, no keynote 2. `--steps-factor` and `--stress-offset` put in a known shift |
 | `make_test_db.py` | A seed for a local Postgres with the four tables the workflow's query reads, from one or more exports. Takes the same two shift options, for the `--study-2026` exports |
-| `make_baseline.py` | Last year's tables for `ubilife-compare-live`, from a finished `ubilife-compare` run |
 
 ## A local test database
 
@@ -49,6 +48,18 @@ on Zenodo (record 19220274).
 
    Steps "shifted (small)" (d ≈ 0.24), stress "shifted (medium)" (d ≈ 0.46),
    the other 14 "same".
+
+## Replaying the conference now
+
+To watch the live comparison take in data as it arrives, seed the 2026 study with
+`--day-one` set to yesterday. Its data then arrives in real time, from its second
+day on, as if the conference were running. Use a copy of `ubilife-compare-live`
+whose 2026 dates match (`replay/ubilife-live-replay.zip` moves them to 6-10 Oct;
+`replay/ubilife-accumulation-replay.zip` does the same for `ubilife-accumulation`).
+
+After any reseed, clear the query store, or `--incremental` keeps rows the old
+database returned: `docker compose exec dsp-portal rm -rf /state/query-store`
+(`/root/.carp-dsp/query-store` on images before 7 Oct).
 
 ## Notes
 

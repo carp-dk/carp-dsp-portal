@@ -4,6 +4,7 @@ import { useCurrentUser } from '../auth/FakeUserProvider';
 import RunModeSwitch from './RunModeSwitch';
 
 const NAV = [
+  { to: '/ubilife', label: 'UbiLife 2026' },
   { to: '/workflows', label: 'Workflows' },
   { to: '/runs', label: 'Runs' },
   { to: '/results', label: 'Results' },
