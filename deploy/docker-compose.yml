@@ -1,0 +1,24 @@
+# The portal on a server, from an image loaded with `docker load`. See README.md.
+services:
+  dsp-portal:
+    image: carp-dsp-portal:${TAG:?set TAG in .env}
+    # Only this machine can reach the port. Put the server's reverse proxy, with
+    # access control, in front of it: whoever reaches the portal can run code.
+    ports:
+      - "${DSP_BIND:-127.0.0.1}:${DSP_PUBLISH_PORT:-8080}:8080"
+    environment:
+      DSP_PORT: "8080"
+      DSP_VERSION: "${TAG}"
+      DSP_MODE: "real"
+      DSP_STATE: "/state/portal-state.json"
+      DSP_RUNS: "/state/runs"
+    # CARP_DSP_SQL_URL, CARP_DSP_SQL_USER and CARP_DSP_SQL_PASSWORD, and any
+    # memory setting. Never in the image or a bundle.
+    env_file:
+      - .env
+    volumes:
+      - portal-state:/state
+    restart: unless-stopped
+
+volumes:
+  portal-state:

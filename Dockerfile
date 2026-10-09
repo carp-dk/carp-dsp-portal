@@ -48,12 +48,12 @@ RUN --mount=type=cache,target=/root/.gradle \
     ./gradlew :server:installDist :carp-dsp:carp.dsp.steps:taskRuntimeJar \
         -PskipWebBuild=true --no-daemon
 
-# ── Stage 3: runtime ──────────────────────────────────────────────────────────
+# ── Stage 3: the runtime base ─────────────────────────────────────────────────
 #
 # glibc rather than Alpine. pixi itself has a musl build, but the conda packages
 # it installs are linux-64 and glibc-linked, so an Alpine runtime solves an
 # environment and then fails to load it.
-FROM eclipse-temurin:21-jre
+FROM eclipse-temurin:21-jre AS base
 WORKDIR /app
 
 RUN apt-get update && \
@@ -62,7 +62,36 @@ RUN apt-get update && \
     curl -fsSL https://pixi.sh/install.sh | PIXI_HOME=/usr/local bash && \
     pixi --version
 
+# ── Stage 4: environments, for servers without internet ───────────────────────
+#
+# Builds the environments these demo bundles need, with the same planning a run
+# does, at the path runs look for them. The runtime copies them onto the state
+# volume at start (docker/entrypoint.sh). Pass --build-arg PREBUILT_ENVS= to
+# skip, for a smaller image on a machine that can solve environments itself.
+FROM base AS envs
+ARG PREBUILT_ENVS="ubilife ubilife-compare ubilife-compare-live ubilife-accumulation"
+
 COPY --from=server /build/carp-dsp-portal/server/build/install/server/ ./
+COPY --from=server /build/carp-dsp/carp.dsp.steps/build/task-runtime/carp-task-runtime.jar /app/task-runtime/
+COPY --from=server /build/carp-dsp-portal/demo-bundles/ /bundles/
+
+ENV HOME=/state/home CARP_DSP_TASK_RUNTIME=/app/task-runtime DSP_STATE=/tmp/portal-state.json
+RUN mkdir -p /state/home/.carp-dsp/envs && \
+    if [ -n "$PREBUILT_ENVS" ]; then \
+        cd /tmp && \
+        java -Duser.home=/state/home -cp "/app/lib/*" dk.cachet.carp.dsp.portal.tools.PrepareEnvironmentsKt \
+            $(for b in $PREBUILT_ENVS; do echo /bundles/$b; done); \
+    fi && \
+    rm -rf /state/home/.cache
+
+# ── Stage 5: runtime ──────────────────────────────────────────────────────────
+FROM base
+
+COPY --from=server /build/carp-dsp-portal/server/build/install/server/ ./
+COPY --from=envs /state/home/.carp-dsp/envs/ /opt/carp-dsp/envs/
+COPY carp-dsp-portal/docker/entrypoint.sh /app/bin/entrypoint.sh
+# A checkout on Windows can give the script CRLF line endings, which sh rejects.
+RUN sed -i 's/\r$//' /app/bin/entrypoint.sh && chmod +x /app/bin/entrypoint.sh
 
 # Kotlin steps run as `java -cp <runtime jar>`. The jar stays in the image rather
 # than under $HOME: home is the state volume, and a volume keeps what was first
@@ -91,4 +120,4 @@ EXPOSE 8080
 HEALTHCHECK --interval=30s --timeout=3s --start-period=20s --retries=3 \
     CMD curl -fsS http://localhost:8080/health || exit 1
 
-ENTRYPOINT ["./bin/server"]
+ENTRYPOINT ["/app/bin/entrypoint.sh"]

@@ -100,6 +100,14 @@ restart, see it.
 mobgap run pays about a minute and 850 MB for its environment; later ones start
 straight away. Keep the volume between demo rehearsals.
 
+The environments the UbiLife bundles need are built into the image
+(`PREBUILT_ENVS` in the `Dockerfile`) and copied onto the volume at start, so
+those workflows run on a server without internet. `--build-arg PREBUILT_ENVS=`
+skips them for a smaller image.
+
+To deploy to a server, see [deploy/README.md](deploy/README.md): one image
+file, built from clean clones of the committed code.
+
 ## What is real and what is not
 
 Real: uploading a workflow, validating it, running it — stored or uploaded, on
