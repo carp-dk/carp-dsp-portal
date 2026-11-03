@@ -38,6 +38,7 @@ fun Application.configureRouting() {
                     status = "UP",
                     service = "carp-dsp-portal",
                     version = System.getenv("DSP_VERSION") ?: "dev",
+                    edition = Edition.current.name,
                     source = RepoSource.mode,
                     librarySteps = StepLibrary.list().size,
                     demoWorkflows = WorkflowLibrary.list().size,
@@ -58,6 +59,11 @@ fun Application.configureRouting() {
         route("/api") {
             analyticsRoutes()
             settingsRoutes()
+
+            // Portal-only: which tabs this build shows. Fixed at build time.
+            get("/edition") {
+                call.respond(Edition.current)
+            }
 
             get("{...}") {
                 call.respond(

@@ -37,6 +37,24 @@ runs for real and takes about 40 seconds.
 Working on the front end only? `cd web && pnpm dev` gives Vite's hot reload, with
 the Kotlin side running separately.
 
+## Editions
+
+One codebase, built as one of four editions. `editions.yaml` says what each ships with.
+
+| Edition | carp-dsp content | Tabs |
+|---|---|---|
+| `light` | none | all but Step library, Compose and UbiLife 2026 |
+| `standard` (default) | step library, demo workflows | all but UbiLife 2026 |
+| `ubicomp` | as standard | all, UbiLife 2026 first |
+| `transport` | as standard | as standard, for now |
+
+```bash
+./gradlew :server:run -Pedition=light
+```
+
+`light` also ignores a `DSP_REPO` mount. `/health` and `/api/edition` report the
+edition a build was made as. A hidden tab's pages redirect to Workflows.
+
 ## Build and check
 
 ```bash

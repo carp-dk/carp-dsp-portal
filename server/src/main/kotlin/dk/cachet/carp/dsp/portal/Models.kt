@@ -26,7 +26,9 @@ data class HealthResponse(
     val status: String,
     val service: String,
     val version: String,
-    /** "repo:<path>" when reading a live checkout, "bundled" otherwise. */
+    /** The edition the portal was built as. See editions.yaml. */
+    val edition: String = "",
+    /** "repo:<path>" when reading a live checkout, "bundled" for the jar's copy, "none" without content. */
     val source: String = "bundled",
     val librarySteps: Int = 0,
     val demoWorkflows: Int = 0,

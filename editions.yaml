@@ -1,0 +1,42 @@
+# Portal editions: what each build of the portal ships with.
+#
+# Pick one with -Pedition=<name>. Without it, `default` is built.
+#
+#   content       true: bake in carp-dsp's step library, demo workflows,
+#                 protocols, data and scripts. false: none, and a DSP_REPO
+#                 mount is ignored.
+#   tabs          nav tabs, by route name. Must include `workflows`. The order
+#                 shown is the web app's, not this list's.
+#   bundles       entries under demo-bundles/ shipped with the image
+#   prebuiltEnvs  bundles whose environments are built into the image, so they
+#                 run on a server without internet
+#
+# bundles and prebuiltEnvs are read by the Dockerfile and deploy/package.ps1.
+
+default: standard
+
+editions:
+  light:
+    content: false
+    tabs: [workflows, runs, results, data, environments, upload, settings]
+    bundles: []
+    prebuiltEnvs: []
+
+  standard:
+    content: true
+    tabs: [workflows, runs, results, data, compose, library, environments, upload, settings]
+    bundles: [mobgap-bundle.zip, mobgap-bundle-broken.zip, mobgap-bundle-typemismatch.zip, sql-study-data]
+    prebuiltEnvs: []
+
+  ubicomp:
+    content: true
+    tabs: [ubilife, workflows, runs, results, data, compose, library, environments, upload, settings]
+    bundles: [ubilife, ubilife-compare, ubilife-compare-live, ubilife-accumulation]
+    prebuiltEnvs: [ubilife, ubilife-compare, ubilife-compare-live, ubilife-accumulation]
+
+  # The transport bundle and its Transport tab come with PE-5.
+  transport:
+    content: true
+    tabs: [workflows, runs, results, data, compose, library, environments, upload, settings]
+    bundles: []
+    prebuiltEnvs: []

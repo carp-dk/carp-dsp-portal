@@ -31,6 +31,20 @@ class RoutingTest {
     }
 
     @Test
+    fun `edition lists its tabs and matches health`() = testApplication {
+        application { module() }
+
+        val response = client.get("/api/edition")
+
+        assertEquals(HttpStatusCode.OK, response.status)
+        val edition = json.decodeFromString<Edition>(response.bodyAsText())
+        assertTrue("workflows" in edition.tabs, "every edition shows workflows, got ${edition.tabs}")
+
+        val health = json.decodeFromString<HealthResponse>(client.get("/health").bodyAsText())
+        assertEquals(edition.name, health.edition)
+    }
+
+    @Test
     fun `unknown api route returns json not html`() = testApplication {
         application { module() }
 

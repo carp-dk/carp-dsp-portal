@@ -1,5 +1,6 @@
 package dk.cachet.carp.dsp.portal.catalogue
 
+import dk.cachet.carp.dsp.portal.Edition
 import java.io.File
 
 /**
@@ -12,6 +13,9 @@ import java.io.File
  * - **bundled** - the copies packaged into the jar. Keeps the image working on
  *   its own, so a demo does not depend on a checkout being present.
  *
+ * An edition built without content (`light`) uses neither: [repoRoot] is
+ * ignored and the jar holds no copies, so every list is empty.
+ *
  * The bundled copies are indexed by `index.txt`, because a jar cannot list a
  * directory. The repo mode walks the filesystem instead, which is what lets it
  * pick up files nobody has told it about.
@@ -23,13 +27,18 @@ object RepoSource {
 
     private val loader = RepoSource::class.java.classLoader
 
-    /** The checkout, when it is set and actually looks like carp-dsp. */
+    /** The checkout, when it is set, actually looks like carp-dsp, and the edition carries content. */
     private val repoRoot: File? = System.getenv("DSP_REPO")
+        ?.takeIf { Edition.current.content }
         ?.let(::File)
         ?.takeIf { it.isDirectory && File(it, STEPS_PATH).isDirectory }
 
     /** Shown in /health so it is obvious which mode a demo is running in. */
-    val mode: String = repoRoot?.let { "repo:${it.absolutePath}" } ?: "bundled"
+    val mode: String = when {
+        repoRoot != null -> "repo:${repoRoot.absolutePath}"
+        Edition.current.content -> "bundled"
+        else -> "none"
+    }
 
     private const val SCRIPTS_PATH = "carp.dsp.demo/src/jvmMain/resources/scripts"
     private const val PROTOCOLS_PATH = "carp.dsp.demo/src/jvmMain/resources/protocols"

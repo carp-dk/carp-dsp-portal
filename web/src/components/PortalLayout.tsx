@@ -1,19 +1,21 @@
 import { AppBar, Avatar, Box, Button, Container, Toolbar, Typography } from '@mui/material';
 import { NavLink, Outlet } from 'react-router-dom';
+import { useEdition, type Tab } from '../api/edition';
 import { useCurrentUser } from '../auth/FakeUserProvider';
 import RunModeSwitch from './RunModeSwitch';
 
-const NAV = [
-  { to: '/ubilife', label: 'UbiLife 2026' },
-  { to: '/workflows', label: 'Workflows' },
-  { to: '/runs', label: 'Runs' },
-  { to: '/results', label: 'Results' },
-  { to: '/data', label: 'Data' },
-  { to: '/compose', label: 'Compose' },
-  { to: '/library', label: 'Step library' },
-  { to: '/environments', label: 'Environments' },
-  { to: '/upload', label: 'Upload' },
-  { to: '/settings', label: 'Settings' },
+// Every tab the app has, in display order. The edition picks which show.
+const NAV: { tab: Tab; to: string; label: string }[] = [
+  { tab: 'ubilife', to: '/ubilife', label: 'UbiLife 2026' },
+  { tab: 'workflows', to: '/workflows', label: 'Workflows' },
+  { tab: 'runs', to: '/runs', label: 'Runs' },
+  { tab: 'results', to: '/results', label: 'Results' },
+  { tab: 'data', to: '/data', label: 'Data' },
+  { tab: 'compose', to: '/compose', label: 'Compose' },
+  { tab: 'library', to: '/library', label: 'Step library' },
+  { tab: 'environments', to: '/environments', label: 'Environments' },
+  { tab: 'upload', to: '/upload', label: 'Upload' },
+  { tab: 'settings', to: '/settings', label: 'Settings' },
 ];
 
 /**
@@ -27,6 +29,13 @@ const NAV = [
  */
 const PortalLayout = () => {
   const user = useCurrentUser();
+  const edition = useEdition();
+
+  // Nothing while the edition loads, so hidden tabs never flash. If it cannot
+  // be read, show every tab rather than none.
+  const nav = edition.isPending
+    ? []
+    : NAV.filter((item) => !edition.data || edition.data.tabs.includes(item.tab));
 
   return (
     <>
@@ -46,7 +55,7 @@ const PortalLayout = () => {
           </Typography>
 
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flex: 1, ml: 4 }}>
-            {NAV.map((item) => (
+            {nav.map((item) => (
               <Button
                 key={item.to}
                 component={NavLink}

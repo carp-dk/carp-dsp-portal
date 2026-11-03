@@ -158,6 +158,22 @@ part of the analytics surface.
 - Saved values live in `run-environment.properties` beside the state file, so
   secrets stay out of it.
 
+## Edition
+
+The edition the portal was built as (`-Pedition`, see `editions.yaml`).
+Portal-only, and fixed at build time.
+
+| Method | Path | Body | Answers |
+|---|---|---|---|
+| `GET` | `/api/edition` | - | `{name, content, tabs}` |
+
+- `tabs` are route names: `ubilife`, `workflows`, `runs`, `results`, `data`,
+  `compose`, `library`, `environments`, `upload`, `settings`. `workflows` is
+  always there.
+- `content` false means no step library, demo workflows, protocols, data or
+  scripts, and `DSP_REPO` is ignored.
+- `/health` carries the same `edition` name.
+
 ## Where content comes from
 
 The step library is owned by carp-dsp and is **not copied into this repo**. It is
