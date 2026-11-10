@@ -7,6 +7,7 @@ import io.ktor.client.request.get
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.testing.testApplication
+import kotlinx.coroutines.delay
 import kotlinx.serialization.json.Json
 import java.nio.file.Files
 import kotlin.io.path.createDirectories
@@ -65,7 +66,16 @@ class EnvironmentsTest {
         assertEquals("solved", row.status)
         assertEquals("Python 3.11", row.runtime)
         assertEquals(listOf("openjdk=17.*"), row.dependencies)
-        assertTrue((row.sizeBytes ?: 0) >= 1024, "${row.sizeBytes}")
+
+        // The size is measured in the background, so it may only show on a later listing.
+        var size = row.sizeBytes
+        repeat(50) {
+            if (size != null) return@repeat
+            delay(100)
+            size = json.decodeFromString<List<EnvironmentDto>>(client.get("/api/environments").bodyAsText())
+                .single().sizeBytes
+        }
+        assertTrue((size ?: 0) >= 1024, "$size")
     }
 
     @Test

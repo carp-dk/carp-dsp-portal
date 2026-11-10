@@ -52,7 +52,9 @@ One codebase, built as one of four editions. `editions.yaml` says what each ship
 ./gradlew :server:run -Pedition=light
 ```
 
-`light` also ignores a `DSP_REPO` mount. `/health` and `/api/edition` report the
+`light` also ignores a `DSP_REPO` mount. Each edition keeps its own state under
+`data/<edition>/`, so switching edition never shows another edition's runs. Only
+`ubicomp` starts with a finished demo run (`seedRuns`). `/health` and `/api/edition` report the
 edition a build was made as. A hidden tab's pages redirect to Workflows.
 
 ## Build and check
@@ -77,9 +79,9 @@ server and run something before believing a dependency change.
 | `DSP_HOST` | `0.0.0.0` | Bind address |
 | `DSP_REPO` | *(build-time sync)* | A carp-dsp checkout read live, instead of the copy baked into the jar |
 | `DSP_MODE` | `real` | `real` runs workflows through the engine, `simulated` replays recorded results. Switchable live from the top bar |
-| `DSP_RUNS` | `data/runs` | Where real runs write their workspace and artefacts |
+| `DSP_RUNS` | `data/<edition>/runs` | Where real runs write their workspace and artefacts |
 | `DSP_RUN_CONCURRENCY` | `1` | Workflows at once. One workflow can occupy the machine |
-| `DSP_STATE` | `data/portal-state.json` | Session state: uploads, composed workflows, run history |
+| `DSP_STATE` | `data/<edition>/portal-state.json` | Session state: uploads, composed workflows, run history |
 | `DSP_CACHE` | beside `DSP_STATE` | Step cache: a step that already ran on the same inputs is reused, not run. Keep it on the same volume as `DSP_RUNS`, so a reused output is a hard link |
 | `DSP_CACHE_MAX_GB` | `10` | The cache is trimmed to this, least recently used first |
 | `DSP_KEEP_SCHEDULED_RUNS` | `24` | Finished runs a schedule keeps; older ones are deleted. Runs started by hand are kept |

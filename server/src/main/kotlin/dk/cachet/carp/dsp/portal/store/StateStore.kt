@@ -1,5 +1,6 @@
 package dk.cachet.carp.dsp.portal.store
 
+import dk.cachet.carp.dsp.portal.Edition
 import dk.cachet.carp.dsp.portal.api.DataSource
 import dk.cachet.carp.dsp.portal.api.Schedule
 import dk.cachet.carp.dsp.portal.api.WorkflowBindings
@@ -30,7 +31,7 @@ object StateStore {
     }
 
     private val file: File = File(
-        System.getenv("DSP_STATE") ?: "data/portal-state.json",
+        System.getenv("DSP_STATE") ?: Edition.current.dataPath("portal-state.json"),
     )
 
     /** Suppresses saves while restoring, or every restored item rewrites the file. */

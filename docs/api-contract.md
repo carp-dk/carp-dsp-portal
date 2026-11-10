@@ -165,7 +165,7 @@ Portal-only, and fixed at build time.
 
 | Method | Path | Body | Answers |
 |---|---|---|---|
-| `GET` | `/api/edition` | - | `{name, content, tabs}` |
+| `GET` | `/api/edition` | - | `{name, content, seedRuns, tabs}` |
 
 - `tabs` are route names: `ubilife`, `workflows`, `runs`, `results`, `data`,
   `compose`, `library`, `environments`, `upload`, `settings`. `workflows` is

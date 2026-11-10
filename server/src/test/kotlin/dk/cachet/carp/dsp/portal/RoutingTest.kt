@@ -1,6 +1,7 @@
 package dk.cachet.carp.dsp.portal
 
 import dk.cachet.carp.dsp.portal.api.ResultSet
+import dk.cachet.carp.dsp.portal.mock.RunSimulator
 import io.ktor.client.request.get
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
@@ -73,6 +74,10 @@ class RoutingTest {
     @Test
     fun `result sets list the seeded run with its final outputs`() = testApplication {
         application { module() }
+        startApplication()
+
+        // Only editions with seedRuns seed at startup; this test needs the run either way.
+        RunSimulator.seedRecordedRuns()
 
         val response = client.post("/api/analytics/ArtefactRegistryService") {
             contentType(ContentType.Application.Json)

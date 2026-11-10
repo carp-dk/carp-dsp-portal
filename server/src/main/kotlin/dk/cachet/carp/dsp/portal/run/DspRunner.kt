@@ -1,5 +1,6 @@
 package dk.cachet.carp.dsp.portal.run
 
+import dk.cachet.carp.dsp.portal.Edition
 import carp.dsp.core.application.execution.EnvironmentOutcome
 import carp.dsp.core.application.execution.ExecutionLogger
 import carp.dsp.core.application.run.WorkflowExecutor
@@ -40,7 +41,7 @@ object DspRunner {
 
     /** Where run workspaces live. A volume in Docker, so runs survive a restart. */
     private val runsRoot: File =
-        File(System.getenv("DSP_RUNS") ?: "data/runs").absoluteFile.apply { mkdirs() }
+        File(System.getenv("DSP_RUNS") ?: Edition.current.dataPath("runs")).absoluteFile.apply { mkdirs() }
 
     private val pool = Executors.newFixedThreadPool(
         System.getenv("DSP_RUN_CONCURRENCY")?.toIntOrNull() ?: 1,

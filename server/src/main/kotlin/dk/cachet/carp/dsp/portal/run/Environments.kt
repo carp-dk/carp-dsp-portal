@@ -9,6 +9,7 @@ import dk.cachet.carp.dsp.portal.api.EnvironmentDto
 import java.nio.file.Files
 import java.nio.file.Path
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.Executors
 import kotlin.io.path.name
 
 /** How long a measured size is trusted before the directory is walked again. */
@@ -25,6 +26,14 @@ object Environments {
     // A pixi environment is tens of thousands of files, so its size is measured
     // once and kept for a few minutes rather than walked on every page load.
     private val sizes = ConcurrentHashMap<Path, Pair<Long, Long>>()
+
+    // Measured off the request thread: with hundreds of environments a walk takes
+    // minutes, and the page must not wait for it. One thread, so walks never
+    // compete with each other for the disk.
+    private val measuring = ConcurrentHashMap.newKeySet<Path>()
+    private val measurer = Executors.newSingleThreadExecutor { r ->
+        Thread(r, "environment-size").apply { isDaemon = true }
+    }
 
     /** Returns every environment directory the engine keeps, solved or not. */
     fun list(): List<EnvironmentDto> = EnvironmentStore.entries().map(::toDto)
@@ -61,19 +70,28 @@ object Environments {
             else -> entry.directory.name.replace(DIGEST_SUFFIX, "")
         }
 
+    /** The last measured size, or null until the first measurement finishes. Never waits for a walk. */
     private fun sizeOf(directory: Path): Long? {
-        val now = System.currentTimeMillis()
-        sizes[directory]?.let { (bytes, measuredAt) -> if (now - measuredAt < SIZE_TTL_MS) return bytes }
+        val cached = sizes[directory]
+        if (cached == null || System.currentTimeMillis() - cached.second >= SIZE_TTL_MS) measureLater(directory)
+        return cached?.first
+    }
 
-        // A directory can vanish or be half-written while it is walked; an
-        // unknown size is better than a failed page.
-        val bytes = runCatching {
-            Files.walk(directory).use { paths ->
-                paths.filter { Files.isRegularFile(it) }.mapToLong { Files.size(it) }.sum()
+    private fun measureLater(directory: Path) {
+        if (!measuring.add(directory)) return
+
+        measurer.execute {
+            try {
+                // A directory can vanish or be half-written while it is walked; an
+                // unknown size is better than a failed page.
+                runCatching {
+                    Files.walk(directory).use { paths ->
+                        paths.filter { Files.isRegularFile(it) }.mapToLong { Files.size(it) }.sum()
+                    }
+                }.getOrNull()?.let { sizes[directory] = it to System.currentTimeMillis() }
+            } finally {
+                measuring.remove(directory)
             }
-        }.getOrNull() ?: return null
-
-        sizes[directory] = bytes to now
-        return bytes
+        }
     }
 }

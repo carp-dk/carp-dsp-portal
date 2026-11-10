@@ -159,6 +159,9 @@ val editionDef = editionDefs[editionName] as? Map<*, *>
 val editionContent: Boolean = editionDef["content"] as? Boolean
     ?: throw GradleException("Edition '$editionName': `content` must be true or false.")
 
+val editionSeedRuns: Boolean = editionDef["seedRuns"] as? Boolean
+    ?: throw GradleException("Edition '$editionName': `seedRuns` must be true or false.")
+
 val editionTabs: List<String> = (editionDef["tabs"] as? List<*>)
     ?.map { it as? String ?: throw GradleException("Edition '$editionName': `tabs` must be names, got '$it'.") }
     ?: throw GradleException("Edition '$editionName': `tabs` must be a list.")
@@ -179,18 +182,20 @@ val writeEdition by tasks.registering {
 
     val name = editionName
     val content = editionContent
+    val seedRuns = editionSeedRuns
     val tabs = editionTabs
     val out = editionResources.map { it.file("edition.json") }
 
     inputs.property("edition", name)
     inputs.property("content", content)
+    inputs.property("seedRuns", seedRuns)
     inputs.property("tabs", tabs)
     outputs.file(out)
 
     doLast {
-        val json = """{"name":"$name","content":$content,"tabs":[${tabs.joinToString(",") { "\"$it\"" }}]}"""
+        val json = """{"name":"$name","content":$content,"seedRuns":$seedRuns,"tabs":[${tabs.joinToString(",") { "\"$it\"" }}]}"""
         out.get().asFile.apply { parentFile.mkdirs() }.writeText(json + "\n")
-        logger.lifecycle("Edition: $name (content: $content, tabs: ${tabs.joinToString()})")
+        logger.lifecycle("Edition: $name (content: $content, seedRuns: $seedRuns, tabs: ${tabs.joinToString()})")
     }
 }
 
@@ -367,7 +372,11 @@ if (!skipWebBuild) {
     tasks.named("processResources") { dependsOn(copyWebBuild) }
 }
 
-when {
-    !editionContent -> tasks.named("processResources") { dependsOn(clearDspContent) }
-    !skipStepSync -> tasks.named("processResources") { dependsOn(syncDspContent) }
+tasks.named("processResources") {
+    // With -PskipStepSync, content comes from a DSP_REPO mount at runtime instead.
+    if (!editionContent) {
+        dependsOn(clearDspContent)
+    } else if (!skipStepSync) {
+        dependsOn(syncDspContent)
+    }
 }
