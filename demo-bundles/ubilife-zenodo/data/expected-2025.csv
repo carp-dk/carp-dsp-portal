@@ -1,0 +1,55 @@
+metric,expected,source
+records_total,1033274,notebook 01 section 1
+participants_total,82,notebook 01 section 1
+activity_rows,166530,data/processed/activity.parquet
+activity_participants,77,data/processed/activity.parquet
+airquality_rows,3057,data/processed/airquality.parquet
+airquality_participants,65,data/processed/airquality.parquet
+ambientlight_rows,1999,data/processed/ambientlight.parquet
+ambientlight_participants,19,data/processed/ambientlight.parquet
+batterystate_rows,13284,data/processed/batterystate.parquet
+batterystate_participants,58,data/processed/batterystate.parquet
+heartbeat_rows,107994,data/processed/heartbeat.parquet
+heartbeat_participants,80,data/processed/heartbeat.parquet
+location_rows,93913,data/processed/location.parquet
+location_participants,78,data/processed/location.parquet
+screenevent_rows,5606,data/processed/screenevent.parquet
+screenevent_participants,22,data/processed/screenevent.parquet
+stepcount_rows,393319,data/processed/stepcount.parquet
+stepcount_participants,77,data/processed/stepcount.parquet
+weather_rows,3074,data/processed/weather.parquet
+weather_participants,65,data/processed/weather.parquet
+steps_delta_total,1145644,data/processed/stepcount.parquet (sum of steps_delta)
+onboarding_rows,38,data/processed/survey_onboarding.parquet
+onboarding_participants,38,data/processed/survey_onboarding.parquet
+stress_rows,81,data/processed/survey_daily_stress.parquet
+stress_participants,36,data/processed/survey_daily_stress.parquet
+sleep_rows,73,data/processed/survey_daily_sleep.parquet
+sleep_participants,36,data/processed/survey_daily_sleep.parquet
+who5_rows,37,data/processed/survey_who5.parquet
+who5_participants,37,data/processed/survey_who5.parquet
+bfi10_rows,42,data/processed/survey_bfi10.parquet
+bfi10_participants,42,data/processed/survey_bfi10.parquet
+events_rows,224,data/processed/survey_event_ratings.parquet
+events_participants,38,data/processed/survey_event_ratings.parquet
+active_days_median,2,notebook 01 section 2
+active_days_mean,2.5,notebook 01 section 2
+active_days_max,17,notebook 01 section 2
+coverage_participants_shown,37,notebook 01 section 8
+coverage_participants_total,80,report figure 01_heartbeat_coverage
+coverage_mean_pct,34.2,notebook 01 section 8
+platform_iOS,59,notebook 01 section 5
+platform_Android,23,notebook 01 section 5
+surveys_total,765,notebook 01 section 6
+surveys_submitted,614,notebook 01 section 6
+surveys_canceled,151,notebook 01 section 6
+surveys_participants,57,notebook 01 section 6
+who5_n,38,notebook 01 section 6
+who5_median_pct,60,notebook 01 section 6
+who5_below_50,10,notebook 01 section 6
+bfi10_n,48,notebook 01 section 6
+bfi10_extraversion_mean,2.10,notebook 01 section 6
+bfi10_agreeableness_mean,2.65,notebook 01 section 6
+bfi10_conscientiousness_mean,2.84,notebook 01 section 6
+bfi10_neuroticism_mean,1.81,notebook 01 section 6
+bfi10_openness_mean,2.32,notebook 01 section 6

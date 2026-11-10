@@ -1,5 +1,6 @@
 import type {
   ArtifactEntry,
+  ConnectionCheck,
   DataSource,
   DemoWorkflow,
   EnvironmentEntry,
@@ -7,6 +8,8 @@ import type {
   ProtocolSummary,
   ExecutorState,
   LibraryEntry,
+  ResultSet,
+  RunVariable,
   Schedule,
   TimeParametersView,
   ValidationReport,
@@ -417,6 +420,9 @@ export const getRunArtefacts = (executionId: string) =>
     executionId,
   });
 
+export const listResultSets = (studyId = DEMO_STUDY_ID) =>
+  call<ResultSet[]>('ArtefactRegistryService', { __type: 'ListResultSets', studyId });
+
 // ---- StepLibraryService -----------------------------------------------------
 // Service is planned but not in core yet, so the request shape is a guess. The
 // payload is real: entries are the step.yaml files from carp.dsp.steps.
@@ -460,6 +466,22 @@ export const saveTimeParameters = (bindings: WorkflowBindings) =>
       body: JSON.stringify(bindings),
     },
   );
+
+// ---- Run environment ---------------------------------------------------------
+// Portal-only. The variables steps receive, editable in a running portal.
+
+export const listRunVariables = () => restCall<RunVariable[]>('/api/run-environment');
+
+/** Saves a value. An empty one drops the saved value, so the container's shows again. */
+export const setRunVariable = (name: string, value: string | null) =>
+  restCall<RunVariable[]>('/api/run-environment', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name, value }),
+  });
+
+export const testSqlConnection = () =>
+  restCall<ConnectionCheck>('/api/run-environment/test-sql', { method: 'POST' });
 
 // ---- ScheduleService --------------------------------------------------------
 // INVENTED. No service in core to mirror; scheduling moves onto protocol

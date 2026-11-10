@@ -23,7 +23,8 @@ services:
     # Optional, and gitignored: CARP_DSP_SQL_URL, CARP_DSP_SQL_USER and
     # CARP_DSP_SQL_PASSWORD for core.io.query-sql. Steps inherit the server's
     # environment, so credentials reach the step without being written into a
-    # workflow or a bundle.
+    # workflow or a bundle. Values saved on the portal's Settings page replace
+    # these for runs, without a restart.
     env_file:
       - path: .env
         required: false
@@ -35,6 +36,21 @@ services:
       # - ../carp-dsp:/repo:ro
       # and set DSP_REPO: "/repo" above.
     restart: unless-stopped
+
+  # Optional: a local stand-in for the CARP database, seeded from study exports,
+  # for testing the UbiLife workflow without production access. Started only with
+  # `docker compose --profile test-db up -d`; see demo-bundles/tools/ubilife/.
+  # The portal reaches it as jdbc:postgresql://test-db:5432/carp (user and
+  # password carp), set on the Settings page.
+  test-db:
+    image: postgres:16
+    profiles: ["test-db"]
+    environment:
+      POSTGRES_DB: carp
+      POSTGRES_USER: carp
+      POSTGRES_PASSWORD: carp
+    volumes:
+      - ./demo-bundles/tools/ubilife/test-db:/docker-entrypoint-initdb.d:ro
 
 volumes:
   portal-state:

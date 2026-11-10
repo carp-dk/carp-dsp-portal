@@ -138,6 +138,12 @@ internal object BundleChecks {
         return (explicit + fromArgs).distinct().map { it.trim('/') }
     }
 
+    /** Paths of the files a step reads through a `file` input, as a bundle holds them. */
+    internal fun fileInputsOf(step: StepSpec): List<String> =
+        step.inputs.mapNotNull { input ->
+            input.source?.takeIf { it.type == "file" }?.path?.removePrefix("./")?.trim('/')
+        }
+
     /**
      * Boundary inputs - the data a workflow expects from outside the pipeline.
      *
@@ -148,9 +154,10 @@ internal object BundleChecks {
      *   warning. Missing provenance is a documentation gap, not a fault.
      * - a boundary input with no source at all is treated as empty `external`,
      *   which is what keeps older workflows planning.
-     * - `file` input whose path the study does not have -> `DATA_NOT_AVAILABLE`.
+     * - `file` input whose path neither the bundle nor the study has ->
+     *   `DATA_NOT_AVAILABLE`.
      */
-    internal fun boundaryFindings(steps: List<StepSpec>): List<Finding> {
+    internal fun boundaryFindings(steps: List<StepSpec>, bundled: Set<String> = emptySet()): List<Finding> {
         val stepIds = steps.map { it.id }.toSet()
 
         return steps.flatMap { step ->
@@ -177,6 +184,11 @@ internal object BundleChecks {
                         }
 
                     "file" -> {
+                        // The bundle carries it: the run stages it beside the workflow.
+                        if (source.path?.removePrefix("./")?.trim('/') in bundled) {
+                            return@mapNotNull null
+                        }
+
                         val path = source.path
                             ?.removePrefix("./")
                             ?.removePrefix("data/")

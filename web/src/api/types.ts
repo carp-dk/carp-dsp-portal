@@ -82,6 +82,8 @@ export interface StepRunDetail {
   exitCode?: number | null;
   /** Fetch as text. Null when the step printed nothing. */
   outputUrl?: string | null;
+  /** The step did not run: its outputs came from an earlier run of the same step on the same inputs. */
+  reused?: boolean;
 }
 
 export interface ProducedOutputRef {
@@ -498,4 +500,36 @@ export interface EnvironmentEntry {
   sizeBytes: number | null;
   builtAt: string | null;
   lastUsedAt: string | null;
+}
+
+/**
+ * One variable steps receive. Portal-only.
+ *
+ * `source` says where the value comes from: saved in the portal, the container's
+ * environment, or nowhere. A secret's `value` is always null; `set` says whether
+ * it has one.
+ */
+export interface RunVariable {
+  name: string;
+  value: string | null;
+  set: boolean;
+  source: 'SAVED' | 'CONTAINER' | 'UNSET';
+  secret: boolean;
+}
+
+export interface ConnectionCheck {
+  ok: boolean;
+  message: string;
+}
+
+/**
+ * One run's results, as a row in the results list. Portal-only.
+ *
+ * `finals` are the outputs of the run's last steps - the ones no other step reads
+ * from. Empty when those steps did not run.
+ */
+export interface ResultSet {
+  run: ExecutorState;
+  outputCount: number;
+  finals: ArtifactEntry[];
 }

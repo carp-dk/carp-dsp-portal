@@ -71,11 +71,12 @@ fun Application.module() {
     // Saved session first, so seeding does not overwrite restored work.
     StateStore.restore()
 
-    // The study starts with the one demo that has a recorded run behind it, so
-    // the Runs page is never empty and real results are viewable without
-    // waiting. Both seeds are no-ops when state was restored.
+    // The study starts with the one demo that has a recorded run behind it.
+    // Editions with seedRuns also start with that run finished, so Runs and
+    // Results have something to show without waiting. Both seeds are no-ops
+    // when state was restored.
     WorkflowStore.seedFromLibrary()
-    RunSimulator.seedRecordedRuns()
+    if (Edition.current.seedRuns) RunSimulator.seedRecordedRuns()
 
     logLoadedContent()
 

@@ -17,6 +17,7 @@ import dk.cachet.carp.dsp.portal.run.RunHistory
 import dk.cachet.carp.dsp.portal.run.RunMode
 import dk.cachet.carp.dsp.portal.run.EngineValidator
 import dk.cachet.carp.dsp.portal.run.RunArtefacts
+import dk.cachet.carp.dsp.portal.run.ResultSets
 import dk.cachet.carp.dsp.portal.run.Cadence
 import dk.cachet.carp.dsp.portal.run.RunLauncher
 import dk.cachet.carp.dsp.portal.run.Scheduler
@@ -242,6 +243,8 @@ fun Route.analyticsRoutes() {
                         RunSimulator.artifacts(request.executionId)
                     },
                 )
+
+                is ListResultSets -> call.respond(ResultSets.list(request.studyId))
             }
         }
 

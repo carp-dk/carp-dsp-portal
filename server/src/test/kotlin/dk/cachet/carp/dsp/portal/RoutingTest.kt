@@ -1,6 +1,12 @@
 package dk.cachet.carp.dsp.portal
 
+import dk.cachet.carp.dsp.portal.api.ResultSet
+import dk.cachet.carp.dsp.portal.mock.RunSimulator
 import io.ktor.client.request.get
+import io.ktor.client.request.post
+import io.ktor.client.request.setBody
+import io.ktor.http.ContentType
+import io.ktor.http.contentType
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.testing.testApplication
@@ -23,6 +29,20 @@ class RoutingTest {
         val body = json.decodeFromString<HealthResponse>(response.bodyAsText())
         assertEquals("UP", body.status)
         assertEquals("carp-dsp-portal", body.service)
+    }
+
+    @Test
+    fun `edition lists its tabs and matches health`() = testApplication {
+        application { module() }
+
+        val response = client.get("/api/edition")
+
+        assertEquals(HttpStatusCode.OK, response.status)
+        val edition = json.decodeFromString<Edition>(response.bodyAsText())
+        assertTrue("workflows" in edition.tabs, "every edition shows workflows, got ${edition.tabs}")
+
+        val health = json.decodeFromString<HealthResponse>(client.get("/health").bodyAsText())
+        assertEquals(edition.name, health.edition)
     }
 
     @Test
@@ -49,5 +69,24 @@ class RoutingTest {
                 response.status == HttpStatusCode.ServiceUnavailable,
             "expected SPA fallback, got ${response.status}",
         )
+    }
+
+    @Test
+    fun `result sets list the seeded run with its final outputs`() = testApplication {
+        application { module() }
+        startApplication()
+
+        // Only editions with seedRuns seed at startup; this test needs the run either way.
+        RunSimulator.seedRecordedRuns()
+
+        val response = client.post("/api/analytics/ArtefactRegistryService") {
+            contentType(ContentType.Application.Json)
+            setBody("""{"__type":"ListResultSets","studyId":"11111111-1111-1111-1111-111111111111"}""")
+        }
+
+        assertEquals(HttpStatusCode.OK, response.status)
+        val sets = Json { ignoreUnknownKeys = true; classDiscriminator = "__type" }
+            .decodeFromString<List<ResultSet>>(response.bodyAsText())
+        assertTrue(sets.any { set -> set.finals.isNotEmpty() })
     }
 }

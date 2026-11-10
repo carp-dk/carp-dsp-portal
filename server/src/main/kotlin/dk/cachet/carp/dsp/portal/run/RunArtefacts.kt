@@ -30,7 +30,13 @@ object RunArtefacts {
     /** How CommandStepRunner inlines a short output. */
     private const val DATA_URI_PREFIX = "data:text/plain,"
 
-    fun entries(executionId: String): List<ArtifactEntry> {
+    /**
+     * Returns every output [executionId] produced.
+     *
+     * @param countRows Whether a table preview counts its rows. Off for lists,
+     *   where reading every file to the end adds up.
+     */
+    fun entries(executionId: String, countRows: Boolean = true): List<ArtifactEntry> {
         val report = DspRunner.report(executionId) ?: return emptyList()
 
         return report.stepResults.flatMap { step ->
@@ -43,7 +49,7 @@ object RunArtefacts {
                     downloadUrl = "/api/artefacts/$executionId/${step.stepMetadata.id}/${output.outputId}",
                     stepName = step.stepMetadata.name,
                     outputName = output.name,
-                    preview = previewOf(executionId, step.stepMetadata.id, output.outputId, output.contentType),
+                    preview = previewOf(executionId, step.stepMetadata.id, output.outputId, output.contentType, countRows),
                 )
             }
         }
@@ -65,6 +71,7 @@ object RunArtefacts {
         stepId: String,
         outputId: String,
         contentType: String?,
+        countRows: Boolean,
     ): TablePreview? {
         val delimiter = when {
             contentType == null -> return null
@@ -92,7 +99,7 @@ object RunArtefacts {
         return TablePreview(
             columns = splitRow(lines.first(), delimiter),
             rows = lines.drop(1).map { splitRow(it, delimiter) },
-            totalRows = countDataRows(file),
+            totalRows = if (countRows) countDataRows(file) else null,
         )
     }
 

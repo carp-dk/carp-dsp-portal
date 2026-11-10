@@ -37,6 +37,26 @@ runs for real and takes about 40 seconds.
 Working on the front end only? `cd web && pnpm dev` gives Vite's hot reload, with
 the Kotlin side running separately.
 
+## Editions
+
+One codebase, built as one of four editions. `editions.yaml` says what each ships with.
+
+| Edition | carp-dsp content | Tabs |
+|---|---|---|
+| `light` | none | all but Step library, Compose and UbiLife 2026 |
+| `standard` (default) | step library, demo workflows | all but UbiLife 2026 |
+| `ubicomp` | as standard | all, UbiLife 2026 first |
+| `transport` | as standard | as standard, for now |
+
+```bash
+./gradlew :server:run -Pedition=light
+```
+
+`light` also ignores a `DSP_REPO` mount. Each edition keeps its own state under
+`data/<edition>/`, so switching edition never shows another edition's runs. Only
+`ubicomp` starts with a finished demo run (`seedRuns`). `/health` and `/api/edition` report the
+edition a build was made as. A hidden tab's pages redirect to Workflows.
+
 ## Build and check
 
 ```bash
@@ -59,9 +79,21 @@ server and run something before believing a dependency change.
 | `DSP_HOST` | `0.0.0.0` | Bind address |
 | `DSP_REPO` | *(build-time sync)* | A carp-dsp checkout read live, instead of the copy baked into the jar |
 | `DSP_MODE` | `real` | `real` runs workflows through the engine, `simulated` replays recorded results. Switchable live from the top bar |
-| `DSP_RUNS` | `data/runs` | Where real runs write their workspace and artefacts |
+| `DSP_RUNS` | `data/<edition>/runs` | Where real runs write their workspace and artefacts |
 | `DSP_RUN_CONCURRENCY` | `1` | Workflows at once. One workflow can occupy the machine |
-| `DSP_STATE` | `data/portal-state.json` | Session state: uploads, composed workflows, run history |
+| `DSP_STATE` | `data/<edition>/portal-state.json` | Session state: uploads, composed workflows, run history |
+| `DSP_CACHE` | beside `DSP_STATE` | Step cache: a step that already ran on the same inputs is reused, not run. Keep it on the same volume as `DSP_RUNS`, so a reused output is a hard link |
+| `DSP_CACHE_MAX_GB` | `10` | The cache is trimmed to this, least recently used first |
+| `DSP_KEEP_SCHEDULED_RUNS` | `24` | Finished runs a schedule keeps; older ones are deleted. Runs started by hand are kept |
+| `CARP_DSP_QUERY_STORE` | beside `DSP_CACHE` | What `core.io.query-sql --incremental` keeps between runs. Clear it after replacing the database |
+
+Steps get the server's environment, plus anything saved on the **Settings**
+page. Saved values apply from the next run, with no rebuild or restart, so a
+deployed portal's connection details (`CARP_DSP_SQL_URL`, `_USER`, `_PASSWORD`)
+can be fixed in place. They are stored in `run-environment.properties` beside
+`DSP_STATE`, not in the state file. Passwords are never shown. The page is open
+to anyone who can reach the portal. `DSP_*` settings are still read once, at
+startup.
 
 ## Docker
 
@@ -87,6 +119,14 @@ restart, see it.
 (`$HOME/.carp-dsp/envs`) and pixi's package cache survive a restart. The first
 mobgap run pays about a minute and 850 MB for its environment; later ones start
 straight away. Keep the volume between demo rehearsals.
+
+The environments the UbiLife bundles need are built into the image
+(`PREBUILT_ENVS` in the `Dockerfile`) and copied onto the volume at start, so
+those workflows run on a server without internet. `--build-arg PREBUILT_ENVS=`
+skips them for a smaller image.
+
+To deploy to a server, see [deploy/README.md](deploy/README.md): one image
+file, built from clean clones of the committed code.
 
 ## What is real and what is not
 

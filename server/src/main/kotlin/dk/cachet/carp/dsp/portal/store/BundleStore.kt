@@ -1,5 +1,6 @@
 package dk.cachet.carp.dsp.portal.store
 
+import dk.cachet.carp.dsp.portal.Edition
 import java.io.File
 
 /**
@@ -14,7 +15,7 @@ object BundleStore {
     // size, and the state file is rewritten whole on every change.
     var root: File = File(
         System.getenv("DSP_BUNDLES")
-            ?: File(System.getenv("DSP_STATE") ?: "data/portal-state.json")
+            ?: File(System.getenv("DSP_STATE") ?: Edition.current.dataPath("portal-state.json"))
                 .absoluteFile.resolveSibling("bundles").path,
     )
 

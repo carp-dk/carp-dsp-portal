@@ -1,0 +1,678 @@
+schemaVersion: "1.0"
+metadata:
+  id: "ubilife-compare"
+  name: "UbiLife 2025 against 2026"
+  description: >-
+    Reads UbiLife 2025 and 2026 from the CARP database with the UbiLife
+    workflow's own steps, then compares them measure by measure - steps, stress,
+    sleep, WHO-5, BFI-10, demographics, ratings, activity - and marks each as
+    the same or shifted, by effect size.
+  version: "1.0"
+  tags:
+    - "ubilife"
+    - "ubicomp"
+    - "carp"
+    - "sql"
+    - "comparison"
+environments:
+  env-ubilife:
+    name: "UbiLife analysis"
+    kind: "pixi"
+    spec:
+      dependencies:
+        - "pypi:pandas"
+        - "pypi:numpy"
+        - "pypi:matplotlib>=3.9"
+        - "pypi:scipy"
+        - "pypi:ijson"
+      pythonVersion:
+        - "3.12"
+steps:
+  - id: "query-2025"
+    uses: "core.io.query-sql"
+    metadata:
+      name: "Read UbiLife 2025"
+      description: "Every stored sequence of the study, by arrival time. Fixed, so read once and reused"
+      version: "1.0"
+    dependsOn: []
+    cache: true
+    inputs:
+      - id: "query"
+        source:
+          type: "file"
+          path: "data/study-data.sql"
+    args:
+      - "--param"
+      - "studyId=b3607581-56c6-4652-a4f6-8e86e5a4e7e5"
+      - "--from"
+      - "2025-10-01T00:00:00.000+00"
+      - "--to"
+      - "2026-01-16T00:00:00.000+00"
+  - id: "decode-2025"
+    uses: "core.io.decode-carp-data-streams"
+    metadata:
+      name: "Decode 2025"
+      description: "Stored sequences to the measurement and provenance tables"
+      version: "1.0"
+    dependsOn:
+      - "query-2025"
+    inputs:
+      - id: "rows"
+        source:
+          type: "step-output"
+          stepId: "query-2025"
+          outputId: "rows"
+  - id: "split-2025"
+    metadata:
+      name: "Split 2025"
+      description: "Steps, surveys and activity, with participant and timestamp"
+      version: "1.0"
+    environmentId: "env-ubilife"
+    dependsOn:
+      - "decode-2025"
+    task:
+      type: "command"
+      id: "task-split-2025"
+      name: "split-2025"
+      executable: "python"
+      args:
+        - "scripts/ubilife/split_streams.py"
+        - "--measurements"
+        - "input.0"
+        - "--provenance"
+        - "input.1"
+        - "--stream"
+        - "stepcount,stepevent"
+        - "output.0"
+        - "--stream"
+        - "survey"
+        - "output.1"
+        - "--stream"
+        - "activity"
+        - "output.2"
+    inputs:
+      - id: "measurements"
+        descriptor:
+          fileFormat: "csv"
+          encoding: "utf-8"
+          notes: "Measurement table"
+        source:
+          type: "step-output"
+          stepId: "decode-2025"
+          outputId: "measurements"
+      - id: "provenance"
+        descriptor:
+          fileFormat: "csv"
+          encoding: "utf-8"
+          notes: "Provenance table"
+        source:
+          type: "step-output"
+          stepId: "decode-2025"
+          outputId: "provenance"
+    outputs:
+      - id: "steps"
+        descriptor:
+          fileFormat: "csv"
+          encoding: "utf-8"
+          notes: "Step counter"
+      - id: "survey"
+        descriptor:
+          fileFormat: "csv"
+          encoding: "utf-8"
+          notes: "Surveys"
+      - id: "activity"
+        descriptor:
+          fileFormat: "csv"
+          encoding: "utf-8"
+          notes: "Activity recognition"
+  - id: "prepare-steps-2025"
+    metadata:
+      name: "Prepare step counts 2025"
+      description: "Conference window, counter to per-interval steps"
+      version: "1.0"
+    environmentId: "env-ubilife"
+    dependsOn:
+      - "split-2025"
+    task:
+      type: "command"
+      id: "task-prepare-steps-2025"
+      name: "prepare-steps-2025"
+      executable: "python"
+      args:
+        - "scripts/ubilife/prepare_steps.py"
+        - "--steps"
+        - "input.0"
+        - "--from"
+        - "2025-10-13"
+        - "--to"
+        - "2025-10-17"
+        - "--intervals"
+        - "output.0"
+        - "--daily"
+        - "output.1"
+    inputs:
+      - id: "steps"
+        descriptor:
+          fileFormat: "csv"
+          encoding: "utf-8"
+          notes: "Step counter"
+        source:
+          type: "step-output"
+          stepId: "split-2025"
+          outputId: "steps"
+    outputs:
+      - id: "intervals"
+        descriptor:
+          fileFormat: "csv"
+          encoding: "utf-8"
+          notes: "Per-interval steps"
+      - id: "daily-steps"
+        descriptor:
+          fileFormat: "csv"
+          encoding: "utf-8"
+          notes: "Steps per participant per day"
+  - id: "prepare-surveys-2025"
+    metadata:
+      name: "Parse surveys 2025"
+      description: "Submitted surveys to one table per instrument"
+      version: "1.0"
+    environmentId: "env-ubilife"
+    dependsOn:
+      - "split-2025"
+    task:
+      type: "command"
+      id: "task-prepare-surveys-2025"
+      name: "prepare-surveys-2025"
+      executable: "python"
+      args:
+        - "scripts/ubilife/prepare_surveys.py"
+        - "--surveys"
+        - "input.0"
+        - "--onboarding"
+        - "output.0"
+        - "--stress"
+        - "output.1"
+        - "--sleep"
+        - "output.2"
+        - "--who5"
+        - "output.3"
+        - "--bfi10"
+        - "output.4"
+        - "--events"
+        - "output.5"
+    inputs:
+      - id: "survey"
+        descriptor:
+          fileFormat: "csv"
+          encoding: "utf-8"
+          notes: "Surveys"
+        source:
+          type: "step-output"
+          stepId: "split-2025"
+          outputId: "survey"
+    outputs:
+      - id: "onboarding"
+        descriptor:
+          fileFormat: "csv"
+          encoding: "utf-8"
+          notes: "One row per participant: age, gender, role, prior UbiComp"
+      - id: "stress"
+        descriptor:
+          fileFormat: "csv"
+          encoding: "utf-8"
+          notes: "One row per answer: stress 0-10"
+      - id: "sleep"
+        descriptor:
+          fileFormat: "csv"
+          encoding: "utf-8"
+          notes: "One row per answer: sleep quality and hours"
+      - id: "who5"
+        descriptor:
+          fileFormat: "csv"
+          encoding: "utf-8"
+          notes: "One row per participant: WHO-5"
+      - id: "bfi10"
+        descriptor:
+          fileFormat: "csv"
+          encoding: "utf-8"
+          notes: "One row per participant: Big Five"
+      - id: "events"
+        descriptor:
+          fileFormat: "csv"
+          encoding: "utf-8"
+          notes: "One row per rating"
+  - id: "query-2026"
+    uses: "core.io.query-sql"
+    metadata:
+      name: "Read UbiLife 2026"
+      description: "Every stored sequence of the study, by arrival time"
+      version: "1.0"
+    dependsOn: []
+    inputs:
+      - id: "query"
+        source:
+          type: "file"
+          path: "data/study-data.sql"
+    args:
+      - "--param"
+      - "studyId=ba1834de-8caf-4e0e-9ec3-8db05285777f"
+      - "--from"
+      - "2026-10-01T00:00:00.000+00"
+      - "--to"
+      - "2026-11-01T00:00:00.000+00"
+  - id: "decode-2026"
+    uses: "core.io.decode-carp-data-streams"
+    metadata:
+      name: "Decode 2026"
+      description: "Stored sequences to the measurement and provenance tables"
+      version: "1.0"
+    dependsOn:
+      - "query-2026"
+    inputs:
+      - id: "rows"
+        source:
+          type: "step-output"
+          stepId: "query-2026"
+          outputId: "rows"
+  - id: "split-2026"
+    metadata:
+      name: "Split 2026"
+      description: "Steps, surveys and activity, with participant and timestamp"
+      version: "1.0"
+    environmentId: "env-ubilife"
+    dependsOn:
+      - "decode-2026"
+    task:
+      type: "command"
+      id: "task-split-2026"
+      name: "split-2026"
+      executable: "python"
+      args:
+        - "scripts/ubilife/split_streams.py"
+        - "--measurements"
+        - "input.0"
+        - "--provenance"
+        - "input.1"
+        - "--stream"
+        - "stepcount,stepevent"
+        - "output.0"
+        - "--stream"
+        - "survey"
+        - "output.1"
+        - "--stream"
+        - "activity"
+        - "output.2"
+    inputs:
+      - id: "measurements"
+        descriptor:
+          fileFormat: "csv"
+          encoding: "utf-8"
+          notes: "Measurement table"
+        source:
+          type: "step-output"
+          stepId: "decode-2026"
+          outputId: "measurements"
+      - id: "provenance"
+        descriptor:
+          fileFormat: "csv"
+          encoding: "utf-8"
+          notes: "Provenance table"
+        source:
+          type: "step-output"
+          stepId: "decode-2026"
+          outputId: "provenance"
+    outputs:
+      - id: "steps"
+        descriptor:
+          fileFormat: "csv"
+          encoding: "utf-8"
+          notes: "Step counter"
+      - id: "survey"
+        descriptor:
+          fileFormat: "csv"
+          encoding: "utf-8"
+          notes: "Surveys"
+      - id: "activity"
+        descriptor:
+          fileFormat: "csv"
+          encoding: "utf-8"
+          notes: "Activity recognition"
+  - id: "prepare-steps-2026"
+    metadata:
+      name: "Prepare step counts 2026"
+      description: "Conference window, counter to per-interval steps"
+      version: "1.0"
+    environmentId: "env-ubilife"
+    dependsOn:
+      - "split-2026"
+    task:
+      type: "command"
+      id: "task-prepare-steps-2026"
+      name: "prepare-steps-2026"
+      executable: "python"
+      args:
+        - "scripts/ubilife/prepare_steps.py"
+        - "--steps"
+        - "input.0"
+        - "--from"
+        - "2026-10-12"
+        - "--to"
+        - "2026-10-16"
+        - "--intervals"
+        - "output.0"
+        - "--daily"
+        - "output.1"
+    inputs:
+      - id: "steps"
+        descriptor:
+          fileFormat: "csv"
+          encoding: "utf-8"
+          notes: "Step counter"
+        source:
+          type: "step-output"
+          stepId: "split-2026"
+          outputId: "steps"
+    outputs:
+      - id: "intervals"
+        descriptor:
+          fileFormat: "csv"
+          encoding: "utf-8"
+          notes: "Per-interval steps"
+      - id: "daily-steps"
+        descriptor:
+          fileFormat: "csv"
+          encoding: "utf-8"
+          notes: "Steps per participant per day"
+  - id: "prepare-surveys-2026"
+    metadata:
+      name: "Parse surveys 2026"
+      description: "Submitted surveys to one table per instrument"
+      version: "1.0"
+    environmentId: "env-ubilife"
+    dependsOn:
+      - "split-2026"
+    task:
+      type: "command"
+      id: "task-prepare-surveys-2026"
+      name: "prepare-surveys-2026"
+      executable: "python"
+      args:
+        - "scripts/ubilife/prepare_surveys.py"
+        - "--surveys"
+        - "input.0"
+        - "--onboarding"
+        - "output.0"
+        - "--stress"
+        - "output.1"
+        - "--sleep"
+        - "output.2"
+        - "--who5"
+        - "output.3"
+        - "--bfi10"
+        - "output.4"
+        - "--events"
+        - "output.5"
+    inputs:
+      - id: "survey"
+        descriptor:
+          fileFormat: "csv"
+          encoding: "utf-8"
+          notes: "Surveys"
+        source:
+          type: "step-output"
+          stepId: "split-2026"
+          outputId: "survey"
+    outputs:
+      - id: "onboarding"
+        descriptor:
+          fileFormat: "csv"
+          encoding: "utf-8"
+          notes: "One row per participant: age, gender, role, prior UbiComp"
+      - id: "stress"
+        descriptor:
+          fileFormat: "csv"
+          encoding: "utf-8"
+          notes: "One row per answer: stress 0-10"
+      - id: "sleep"
+        descriptor:
+          fileFormat: "csv"
+          encoding: "utf-8"
+          notes: "One row per answer: sleep quality and hours"
+      - id: "who5"
+        descriptor:
+          fileFormat: "csv"
+          encoding: "utf-8"
+          notes: "One row per participant: WHO-5"
+      - id: "bfi10"
+        descriptor:
+          fileFormat: "csv"
+          encoding: "utf-8"
+          notes: "One row per participant: Big Five"
+      - id: "events"
+        descriptor:
+          fileFormat: "csv"
+          encoding: "utf-8"
+          notes: "One row per rating"
+  - id: "compare"
+    metadata:
+      name: "Compare the years"
+      description: "Each measure, 2025 against 2026: same, or shifted"
+      version: "1.0"
+    environmentId: "env-ubilife"
+    dependsOn:
+      - "prepare-steps-2025"
+      - "prepare-steps-2026"
+      - "prepare-surveys-2025"
+      - "prepare-surveys-2026"
+      - "split-2025"
+      - "split-2026"
+    task:
+      type: "command"
+      id: "task-compare"
+      name: "compare"
+      executable: "python"
+      args:
+        - "scripts/ubilife/compare.py"
+        - "--a-daily-steps"
+        - "input.0"
+        - "--a-onboarding"
+        - "input.1"
+        - "--a-stress"
+        - "input.2"
+        - "--a-sleep"
+        - "input.3"
+        - "--a-who5"
+        - "input.4"
+        - "--a-bfi10"
+        - "input.5"
+        - "--a-events"
+        - "input.6"
+        - "--a-activity"
+        - "input.7"
+        - "--a-from"
+        - "2025-10-13"
+        - "--a-to"
+        - "2025-10-17"
+        - "--b-daily-steps"
+        - "input.8"
+        - "--b-onboarding"
+        - "input.9"
+        - "--b-stress"
+        - "input.10"
+        - "--b-sleep"
+        - "input.11"
+        - "--b-who5"
+        - "input.12"
+        - "--b-bfi10"
+        - "input.13"
+        - "--b-events"
+        - "input.14"
+        - "--b-activity"
+        - "input.15"
+        - "--b-from"
+        - "2026-10-12"
+        - "--b-to"
+        - "2026-10-16"
+        - "--a-label"
+        - "2025"
+        - "--b-label"
+        - "2026"
+        - "--output"
+        - "output.0"
+        - "--figure"
+        - "output.1"
+    inputs:
+      - id: "daily-steps-2025"
+        descriptor:
+          fileFormat: "csv"
+          encoding: "utf-8"
+          notes: "Steps per participant per day, 2025"
+        source:
+          type: "step-output"
+          stepId: "prepare-steps-2025"
+          outputId: "daily-steps"
+      - id: "onboarding-2025"
+        descriptor:
+          fileFormat: "csv"
+          encoding: "utf-8"
+          notes: "One row per participant: age, gender, role, prior UbiComp, 2025"
+        source:
+          type: "step-output"
+          stepId: "prepare-surveys-2025"
+          outputId: "onboarding"
+      - id: "stress-2025"
+        descriptor:
+          fileFormat: "csv"
+          encoding: "utf-8"
+          notes: "One row per answer: stress 0-10, 2025"
+        source:
+          type: "step-output"
+          stepId: "prepare-surveys-2025"
+          outputId: "stress"
+      - id: "sleep-2025"
+        descriptor:
+          fileFormat: "csv"
+          encoding: "utf-8"
+          notes: "One row per answer: sleep quality and hours, 2025"
+        source:
+          type: "step-output"
+          stepId: "prepare-surveys-2025"
+          outputId: "sleep"
+      - id: "who5-2025"
+        descriptor:
+          fileFormat: "csv"
+          encoding: "utf-8"
+          notes: "One row per participant: WHO-5, 2025"
+        source:
+          type: "step-output"
+          stepId: "prepare-surveys-2025"
+          outputId: "who5"
+      - id: "bfi10-2025"
+        descriptor:
+          fileFormat: "csv"
+          encoding: "utf-8"
+          notes: "One row per participant: Big Five, 2025"
+        source:
+          type: "step-output"
+          stepId: "prepare-surveys-2025"
+          outputId: "bfi10"
+      - id: "events-2025"
+        descriptor:
+          fileFormat: "csv"
+          encoding: "utf-8"
+          notes: "One row per rating, 2025"
+        source:
+          type: "step-output"
+          stepId: "prepare-surveys-2025"
+          outputId: "events"
+      - id: "activity-2025"
+        descriptor:
+          fileFormat: "csv"
+          encoding: "utf-8"
+          notes: "Activity recognition, 2025"
+        source:
+          type: "step-output"
+          stepId: "split-2025"
+          outputId: "activity"
+      - id: "daily-steps-2026"
+        descriptor:
+          fileFormat: "csv"
+          encoding: "utf-8"
+          notes: "Steps per participant per day, 2026"
+        source:
+          type: "step-output"
+          stepId: "prepare-steps-2026"
+          outputId: "daily-steps"
+      - id: "onboarding-2026"
+        descriptor:
+          fileFormat: "csv"
+          encoding: "utf-8"
+          notes: "One row per participant: age, gender, role, prior UbiComp, 2026"
+        source:
+          type: "step-output"
+          stepId: "prepare-surveys-2026"
+          outputId: "onboarding"
+      - id: "stress-2026"
+        descriptor:
+          fileFormat: "csv"
+          encoding: "utf-8"
+          notes: "One row per answer: stress 0-10, 2026"
+        source:
+          type: "step-output"
+          stepId: "prepare-surveys-2026"
+          outputId: "stress"
+      - id: "sleep-2026"
+        descriptor:
+          fileFormat: "csv"
+          encoding: "utf-8"
+          notes: "One row per answer: sleep quality and hours, 2026"
+        source:
+          type: "step-output"
+          stepId: "prepare-surveys-2026"
+          outputId: "sleep"
+      - id: "who5-2026"
+        descriptor:
+          fileFormat: "csv"
+          encoding: "utf-8"
+          notes: "One row per participant: WHO-5, 2026"
+        source:
+          type: "step-output"
+          stepId: "prepare-surveys-2026"
+          outputId: "who5"
+      - id: "bfi10-2026"
+        descriptor:
+          fileFormat: "csv"
+          encoding: "utf-8"
+          notes: "One row per participant: Big Five, 2026"
+        source:
+          type: "step-output"
+          stepId: "prepare-surveys-2026"
+          outputId: "bfi10"
+      - id: "events-2026"
+        descriptor:
+          fileFormat: "csv"
+          encoding: "utf-8"
+          notes: "One row per rating, 2026"
+        source:
+          type: "step-output"
+          stepId: "prepare-surveys-2026"
+          outputId: "events"
+      - id: "activity-2026"
+        descriptor:
+          fileFormat: "csv"
+          encoding: "utf-8"
+          notes: "Activity recognition, 2026"
+        source:
+          type: "step-output"
+          stepId: "split-2026"
+          outputId: "activity"
+    outputs:
+      - id: "comparison"
+        descriptor:
+          fileFormat: "csv"
+          encoding: "utf-8"
+          notes: "measure, n and summary per year, test, p, effect size, verdict"
+      - id: "comparison-figure"
+        descriptor:
+          fileFormat: "png"
+          notes: "Each measure, the two years side by side, with its verdict"

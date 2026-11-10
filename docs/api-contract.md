@@ -92,9 +92,23 @@ mirror in `web/src/api/artifacts.ts`.
 The branch is encoded in the flat type string, so the results view groups by
 prefix - `dk.cachet.carp.dsp.analytic.`, `.media.`, `.control.`.
 
-Only `ImageArtifact` and `PlotArtifact` render inline. Everything else is a
-row with type, size and a download link. `PlotArtifact.spec` travels inline, so
-a plot can be re-rendered interactively with no second fetch.
+Only `ImageArtifact` and `PlotArtifact` render inline. Any output with a
+`preview` shows its first rows. Everything else is a row with type, size and a
+download link. `PlotArtifact.spec` travels inline, so a plot can be re-rendered
+interactively with no second fetch.
+
+### Result sets
+
+`ListResultSets(studyId)` on `ArtefactRegistryService` answers one
+`ResultSet` per settled run that produced anything, newest first:
+`{run, outputCount, finals}`. Portal-only.
+
+- `finals` are the outputs of the run's leaf steps: steps no other step reads
+  from or depends on, read off the workflow. Empty when those steps did not run.
+  If the workflow is gone, the last step that produced anything stands in.
+- Table previews here are not row-counted, so the list does not read every file
+  to the end.
+- Filtering (workflow, date) is done in the browser.
 
 ## What persists
 
@@ -123,6 +137,42 @@ Two decisions worth knowing:
 Writes go through a temp file and an atomic move, so a crash mid-write cannot
 leave a truncated file that fails to load next boot. A state file that cannot
 be read is logged and ignored, not fatal.
+
+## Run environment
+
+Variables every step receives, laid over the server's own environment. Not
+part of the analytics surface.
+
+| Method | Path | Body | Answers |
+|---|---|---|---|
+| `GET` | `/api/run-environment` | - | `RunVariable[]` |
+| `PUT` | `/api/run-environment` | `{name, value}` | `RunVariable[]` |
+| `POST` | `/api/run-environment/test-sql` | - | `{ok, message}` |
+
+- A `RunVariable` is `{name, value, set, source, secret}`, with `source` one of
+  `SAVED`, `CONTAINER`, `UNSET`. A secret (a name holding PASSWORD, SECRET,
+  TOKEN or KEY) always has a null `value`.
+- A null or empty `value` drops the saved value, so the container's applies again.
+- The three `CARP_DSP_SQL_*` variables are always listed.
+- `test-sql` connects with the values a run would get and runs `SELECT 1`.
+- Saved values live in `run-environment.properties` beside the state file, so
+  secrets stay out of it.
+
+## Edition
+
+The edition the portal was built as (`-Pedition`, see `editions.yaml`).
+Portal-only, and fixed at build time.
+
+| Method | Path | Body | Answers |
+|---|---|---|---|
+| `GET` | `/api/edition` | - | `{name, content, seedRuns, tabs}` |
+
+- `tabs` are route names: `ubilife`, `workflows`, `runs`, `results`, `data`,
+  `compose`, `library`, `environments`, `upload`, `settings`. `workflows` is
+  always there.
+- `content` false means no step library, demo workflows, protocols, data or
+  scripts, and `DSP_REPO` is ignored.
+- `/health` carries the same `edition` name.
 
 ## Where content comes from
 

@@ -21,8 +21,10 @@ web/dist/
 # SPA build output, copied in by the Docker build
 server/src/main/resources/static/
 
-# Saved session: composed workflows, runs, schedules, uploads
-data/
+# Saved session: composed workflows, runs, schedules, uploads. Anchored, so a
+# bundle's own data/ folder is still committed.
+/data/
+/server/data/
 *.json.tmp
 
 # Env
@@ -30,6 +32,22 @@ data/
 .env.local
 .env.*.local
 
+# Python
+__pycache__/
+
+# Scratch folder for copying files in and out of containers
+.sync-tmp/
+
 # OS
 .DS_Store
 Thumbs.db
+
+# Seeds built from study exports by demo-bundles/tools/ubilife
+demo-bundles/tools/ubilife/test-db/
+demo-bundles/tools/ubilife/*.sql.gz
+# A 2025 copy of the UbiLife workflow, for local testing
+demo-bundles/tools/ubilife/ubilife-2025/
+demo-bundles/ubilife-compare-live/data/2025/
+demo-bundles/ubilife-compare-live.zip
+# A replay seed and bundle for testing the live comparison
+demo-bundles/tools/ubilife/replay/

@@ -138,6 +138,8 @@ data class StepRunDetail(
     val output: ResourceRef? = null,
     /** What the client fetches. Null when the step printed nothing. */
     val outputUrl: String? = null,
+    /** The step did not run: its outputs came from an earlier run of the same step on the same inputs. */
+    val reused: Boolean = false,
 )
 
 /**
@@ -571,4 +573,45 @@ data class EnvironmentDto(
     val sizeBytes: Long?,
     val builtAt: String?,
     val lastUsedAt: String?,
+)
+
+// ---- Run environment --------------------------------------------------------
+// Portal-only. See run/RunEnvironment.kt and api/SettingsRoutes.kt.
+
+/** Where a variable's value comes from: saved in the portal, the container, or nowhere. */
+@Serializable
+enum class VariableSource { SAVED, CONTAINER, UNSET }
+
+/** One variable steps receive. A secret's value is always null here; `set` says whether it has one. */
+@Serializable
+data class RunVariable(
+    val name: String,
+    val value: String?,
+    val set: Boolean,
+    val source: VariableSource,
+    val secret: Boolean,
+)
+
+/** Saves a value. Null or empty drops the saved value. */
+@Serializable
+data class SetRunVariable(val name: String, val value: String? = null)
+
+@Serializable
+data class ConnectionCheck(val ok: Boolean, val message: String)
+
+// ---- Result sets ------------------------------------------------------------
+// Portal-only. See run/ResultSets.kt.
+
+/**
+ * One run's results, as a row in the results list.
+ *
+ * [finals] are the outputs of the run's last steps - the ones no other step
+ * reads from. Empty when those steps did not run. The workflow name is joined in
+ * by the caller, as for [ExecutorState].
+ */
+@Serializable
+data class ResultSet(
+    val run: ExecutorState,
+    val outputCount: Int,
+    val finals: List<ArtifactEntry>,
 )

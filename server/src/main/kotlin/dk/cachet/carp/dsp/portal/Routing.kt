@@ -3,6 +3,7 @@ package dk.cachet.carp.dsp.portal
 import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
 import dk.cachet.carp.dsp.portal.api.analyticsRoutes
+import dk.cachet.carp.dsp.portal.api.settingsRoutes
 import dk.cachet.carp.dsp.portal.store.WorkflowStore
 import dk.cachet.carp.dsp.portal.catalogue.RepoSource
 import dk.cachet.carp.dsp.portal.store.StateStore
@@ -37,6 +38,7 @@ fun Application.configureRouting() {
                     status = "UP",
                     service = "carp-dsp-portal",
                     version = System.getenv("DSP_VERSION") ?: "dev",
+                    edition = Edition.current.name,
                     source = RepoSource.mode,
                     librarySteps = StepLibrary.list().size,
                     demoWorkflows = WorkflowLibrary.list().size,
@@ -56,6 +58,12 @@ fun Application.configureRouting() {
         // rather than with a page of HTML.
         route("/api") {
             analyticsRoutes()
+            settingsRoutes()
+
+            // Portal-only: which tabs this build shows. Fixed at build time.
+            get("/edition") {
+                call.respond(Edition.current)
+            }
 
             get("{...}") {
                 call.respond(

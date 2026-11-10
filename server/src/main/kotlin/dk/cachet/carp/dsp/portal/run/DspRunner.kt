@@ -1,9 +1,13 @@
 package dk.cachet.carp.dsp.portal.run
 
+import dk.cachet.carp.dsp.portal.Edition
 import carp.dsp.core.application.execution.EnvironmentOutcome
 import carp.dsp.core.application.execution.ExecutionLogger
 import carp.dsp.core.application.run.WorkflowExecutor
 import carp.dsp.core.application.run.WorkflowPackage
+import carp.dsp.core.infrastructure.execution.DefaultPlanExecutor
+import carp.dsp.core.infrastructure.execution.StepCache
+import carp.dsp.core.infrastructure.runtime.JvmCommandRunner
 import dk.cachet.carp.common.application.UUID
 import dk.cachet.carp.dsp.portal.api.ExecutionIssue
 import dk.cachet.carp.dsp.portal.api.ExecutionIssueKind
@@ -37,7 +41,7 @@ object DspRunner {
 
     /** Where run workspaces live. A volume in Docker, so runs survive a restart. */
     private val runsRoot: File =
-        File(System.getenv("DSP_RUNS") ?: "data/runs").absoluteFile.apply { mkdirs() }
+        File(System.getenv("DSP_RUNS") ?: Edition.current.dataPath("runs")).absoluteFile.apply { mkdirs() }
 
     private val pool = Executors.newFixedThreadPool(
         System.getenv("DSP_RUN_CONCURRENCY")?.toIntOrNull() ?: 1,
@@ -151,11 +155,19 @@ object DspRunner {
             return live.state()
         }
 
-        // Re-built with a logger bound to this run, so progress reaches LiveRun.
+        // Re-built with a logger bound to this run, so progress reaches LiveRun,
+        // and with the variables saved on the Settings page, read as the run starts.
+        val environment = RunReuse.withStores(RunEnvironment.overrides())
         val running = WorkflowExecutor.filesystem(
             stepLibrary = PortalStepLibrary,
             workspaceRoot = runDir.toPath(),
-            options = WorkflowExecutor.Options(executionLogger = LiveRunLogger(live)),
+            options = WorkflowExecutor.Options(
+                executionLogger = LiveRunLogger(live),
+                executorOptions = DefaultPlanExecutor.Options(
+                    commandRunner = JvmCommandRunner(environment = environment),
+                    stepCache = RunReuse.cacheFor(environment),
+                ),
+            ),
         )
 
         val worker = pool.submit {
@@ -197,6 +209,7 @@ object DspRunner {
                                 outputUrl = detail.stdout?.let {
                                     "/api/runs/$executionId/steps/${step.stepMetadata.id}/output"
                                 },
+                                reused = detail.metrics?.get(StepCache.REUSED_METRIC) == 1.0,
                             )
                         }
                     }.toMap(),
@@ -211,6 +224,7 @@ object DspRunner {
                 live.abort(e.message ?: e::class.simpleName ?: "Unknown failure")
             } finally {
                 workers.remove(executionId)
+                context?.scheduleId?.let(::pruneSchedule)
             }
         }
         workers[executionId] = worker
@@ -267,6 +281,13 @@ object DspRunner {
         (runs.values.map { it.state() } + RunStore.all(runsRoot).map { it.state })
             .filter { it.workflowId == workflowId }
             .maxByOrNull { it.startedAt }
+
+    /** Deletes the runs of [scheduleId] beyond the ones it keeps. */
+    private fun pruneSchedule(scheduleId: String) {
+        val surplus = RunReuse.surplus(scheduleId, allRuns())
+        surplus.forEach { runs.remove(it.executionId) }
+        RunReuse.delete(surplus, ::dirOf)
+    }
 
     /** The directory a run wrote into, for serving its artefacts. */
     fun runDir(executionId: String): File? =

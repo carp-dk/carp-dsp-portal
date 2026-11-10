@@ -1,3 +1,9 @@
+// Reads editions.yaml. See the Edition section below.
+buildscript {
+    repositories { mavenCentral() }
+    dependencies { classpath("org.yaml:snakeyaml:2.2") }
+}
+
 /** Where the step library lives inside a carp-dsp checkout. */
 val STEPS_IN_REPO = "carp.dsp.steps/src/jvmMain/resources/steps"
 
@@ -115,6 +121,82 @@ val copyWebBuild by tasks.registering(Copy::class) {
     dependsOn(pnpmBuild)
     from(webBuildDir)
     into(layout.buildDirectory.dir("generated-resources/static"))
+}
+
+// ---- Edition ------------------------------------------------------------
+// editions.yaml at the repo root says what each edition ships with. Pick one
+// with -Pedition=<name>; without it, the file's `default` is built.
+//
+// The chosen edition is written to edition.json in its own resource directory,
+// which the server reads at startup (Edition.kt). An edition without content
+// clears the synced carp-dsp copies instead of syncing them.
+
+/** Route names the web app has a tab for. Keep in step with web/src/api/edition.ts. */
+val KNOWN_TABS = setOf(
+    "ubilife", "workflows", "runs", "results", "data",
+    "compose", "library", "environments", "upload", "settings",
+)
+
+val editionsFile = rootProject.layout.projectDirectory.file("editions.yaml").asFile
+
+val editionsYaml: Map<*, *> = editionsFile
+    .takeIf { it.isFile }
+    ?.let { org.yaml.snakeyaml.Yaml().load<Any?>(it.readText()) as? Map<*, *> }
+    ?: throw GradleException("${editionsFile.absolutePath} is missing or not a map.")
+
+val editionDefs = editionsYaml["editions"] as? Map<*, *>
+    ?: throw GradleException("editions.yaml has no `editions` map.")
+
+val editionName: String = (project.findProperty("edition") as String?)
+    ?: editionsYaml["default"] as? String
+    ?: throw GradleException("No -Pedition given and editions.yaml has no `default`.")
+
+val editionDef = editionDefs[editionName] as? Map<*, *>
+    ?: throw GradleException(
+        "Unknown edition '$editionName'. editions.yaml defines: ${editionDefs.keys.joinToString()}.",
+    )
+
+val editionContent: Boolean = editionDef["content"] as? Boolean
+    ?: throw GradleException("Edition '$editionName': `content` must be true or false.")
+
+val editionSeedRuns: Boolean = editionDef["seedRuns"] as? Boolean
+    ?: throw GradleException("Edition '$editionName': `seedRuns` must be true or false.")
+
+val editionTabs: List<String> = (editionDef["tabs"] as? List<*>)
+    ?.map { it as? String ?: throw GradleException("Edition '$editionName': `tabs` must be names, got '$it'.") }
+    ?: throw GradleException("Edition '$editionName': `tabs` must be a list.")
+
+(editionTabs - KNOWN_TABS).takeIf { it.isNotEmpty() }?.let {
+    throw GradleException("Edition '$editionName': unknown tabs $it. Known: ${KNOWN_TABS.joinToString()}.")
+}
+if ("workflows" !in editionTabs) {
+    // Every hidden route redirects to /workflows, so it must always be there.
+    throw GradleException("Edition '$editionName': `tabs` must include `workflows`.")
+}
+
+val editionResources = layout.buildDirectory.dir("generated-edition")
+
+val writeEdition by tasks.registering {
+    group = "content"
+    description = "Write the chosen edition (-Pedition) into the server's resources."
+
+    val name = editionName
+    val content = editionContent
+    val seedRuns = editionSeedRuns
+    val tabs = editionTabs
+    val out = editionResources.map { it.file("edition.json") }
+
+    inputs.property("edition", name)
+    inputs.property("content", content)
+    inputs.property("seedRuns", seedRuns)
+    inputs.property("tabs", tabs)
+    outputs.file(out)
+
+    doLast {
+        val json = """{"name":"$name","content":$content,"seedRuns":$seedRuns,"tabs":[${tabs.joinToString(",") { "\"$it\"" }}]}"""
+        out.get().asFile.apply { parentFile.mkdirs() }.writeText(json + "\n")
+        logger.lifecycle("Edition: $name (content: $content, seedRuns: $seedRuns, tabs: ${tabs.joinToString()})")
+    }
 }
 
 // ---- Step library -------------------------------------------------------
@@ -262,16 +344,39 @@ val syncDspContent by tasks.registering {
     }
 }
 
+/** Removes synced carp-dsp copies, so an edition without content never ships stale ones. */
+val clearDspContent by tasks.registering(Delete::class) {
+    group = "content"
+    description = "Remove the carp-dsp content a previous build synced."
+    val root = layout.buildDirectory.dir("generated-resources")
+    delete(listOf("steplib", "workflows", "protocols", "data", "scripts").map { sub -> root.map { it.dir(sub) } })
+}
+
 sourceSets {
     named("main") {
         resources.srcDir(layout.buildDirectory.dir("generated-resources"))
+        resources.srcDir(editionResources)
     }
+}
+
+tasks.named<ProcessResources>("processResources") {
+    dependsOn(writeEdition)
+
+    // A Copy task keeps files it no longer copies, so switching edition would
+    // leave the last edition's content in the jar. Start from empty each run.
+    val dest = destinationDir
+    doFirst { dest.deleteRecursively() }
 }
 
 if (!skipWebBuild) {
     tasks.named("processResources") { dependsOn(copyWebBuild) }
 }
 
-if (!skipStepSync) {
-    tasks.named("processResources") { dependsOn(syncDspContent) }
+tasks.named("processResources") {
+    // With -PskipStepSync, content comes from a DSP_REPO mount at runtime instead.
+    if (!editionContent) {
+        dependsOn(clearDspContent)
+    } else if (!skipStepSync) {
+        dependsOn(syncDspContent)
+    }
 }
